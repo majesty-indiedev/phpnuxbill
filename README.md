@@ -56,6 +56,12 @@ The problem with windows is hard to set cronjob, better Linux
 
 [Installation instructions](https://github.com/hotspotbilling/phpnuxbill/wiki)
 
+## Developer / Customization Guide
+
+If you want to **customize PHPNuxBill** (add new features, change flows, add integrations), start here:
+
+- `docs/DEVELOPER_GUIDE.md`
+
 ## Freeradius
 
 Support [Freeradius with Database](https://github.com/hotspotbilling/phpnuxbill/wiki/FreeRadius)
