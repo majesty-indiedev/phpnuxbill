@@ -242,12 +242,22 @@ if (!empty($_SESSION['nux-mac']) && !empty($_SESSION['nux-ip'] && $_c['hs_auth_m
     if ($_app_stage != 'demo') {
         if (file_exists($dvc)) {
             require_once $dvc;
-            if ($_GET['mikrotik'] == 'login') {
-                (new $p['device'])->connect_customer($user, $_SESSION['nux-ip'], $_SESSION['nux-mac'], $bill['routers']);
-                r2(getUrl('home'), 's', Lang::T('Login Request successfully'));
-            } else if ($_GET['mikrotik'] == 'logout') {
-                (new $p['device'])->disconnect_customer($user, $bill['routers']);
-                r2(getUrl('home'), 's', Lang::T('Logout Request successfully'));
+            try {
+                // Prevent long hangs in captive portal webviews when router is unreachable.
+                @set_time_limit(10);
+                if ($_GET['mikrotik'] == 'login') {
+                    (new $p['device'])->connect_customer($user, $_SESSION['nux-ip'], $_SESSION['nux-mac'], $bill['routers']);
+                    r2(getUrl('home'), 's', Lang::T('Login Request successfully'));
+                } else if ($_GET['mikrotik'] == 'logout') {
+                    (new $p['device'])->disconnect_customer($user, $bill['routers']);
+                    r2(getUrl('home'), 's', Lang::T('Logout Request successfully'));
+                }
+            } catch (Throwable $e) {
+                _log("Mikrotik captive action failed: " . $e->getMessage(), 'System', $user['id']);
+                r2(getUrl('home'), 'e', Lang::T('Failed to connect to device'));
+            } catch (Exception $e) {
+                _log("Mikrotik captive action failed: " . $e->getMessage(), 'System', $user['id']);
+                r2(getUrl('home'), 'e', Lang::T('Failed to connect to device'));
             }
         } else {
             new Exception(Lang::T("Devices Not Found"));

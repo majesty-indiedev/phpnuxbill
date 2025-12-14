@@ -328,12 +328,18 @@ class MikrotikPppoe
 
     function getClient($ip, $user, $pass)
     {
-        global $_app_stage;
+        global $_app_stage, $config;
         if ($_app_stage == 'demo') {
             return null;
         }
         $iport = explode(":", $ip);
-        return new RouterOS\Client($iport[0], $user, $pass, ($iport[1]) ? $iport[1] : null);
+        $host = $iport[0];
+        $port = (!empty($iport[1])) ? (int) $iport[1] : 8728;
+        // RouterOS API timeout in seconds (allow longer; actions are processed in background for captive portals).
+        $timeoutSeconds = !empty($config['routeros_timeout']) ? (int) $config['routeros_timeout'] : 30;
+        if ($timeoutSeconds < 1) $timeoutSeconds = 1;
+        if ($timeoutSeconds > 120) $timeoutSeconds = 120;
+        return new RouterOS\Client($host, $user, $pass, $port, false, $timeoutSeconds);
     }
 
     function removePpoeUser($client, $username)

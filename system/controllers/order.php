@@ -140,8 +140,7 @@ switch ($action) {
             ->where('username', $user['username'])
             ->where('status', 1)
             ->find_one();
-        run_hook('custome
-        r_find_unpaid'); #HOOK
+        run_hook('customer_find_unpaid'); #HOOK
         if ($d) {
             if (empty($d['pg_url_payment'])) {
                 r2(getUrl('order/buy/') . $trx['routers_id'] . '/' . $trx['plan_id'], 'w', Lang::T("Checking payment"));
