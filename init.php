@@ -14,6 +14,17 @@ $root_path = realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR;
 if (!isset($isApi)) {
     $isApi = false;
 }
+
+// iOS captive portal webviews (CNA) can sometimes lose PHP session state between navigations.
+// Restore hotspot "nux-*" parameters from cookies when session is missing them.
+if (php_sapi_name() !== 'cli') {
+    $keys = ['nux-mac', 'nux-ip', 'nux-router', 'nux-key', 'nux-hostname'];
+    foreach ($keys as $k) {
+        if (empty($_SESSION[$k]) && !empty($_COOKIE[$k])) {
+            $_SESSION[$k] = $_COOKIE[$k];
+        }
+    }
+}
 // on some server, it getting error because of slash is backwards
 function _autoloader($class)
 {
