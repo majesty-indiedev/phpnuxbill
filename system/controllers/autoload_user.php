@@ -25,10 +25,13 @@ switch ($action) {
                     if (file_exists($dvc)) {
                         require_once $dvc;
                         if ((new $p['device'])->online_customer($user, $bill['routers'])) {
-                            die('<a href="' . getUrl('home&mikrotik=logout&id=' . $bill['id']) . '" onclick="return confirm(\'' . Lang::T('Disconnect Internet?') . '\')" class="btn btn-success btn-xs btn-block">' . Lang::T('You are Online, Logout?') . '</a>');
+                            // iOS captive portal webviews often block native JS confirm()/alert().
+                            // Use a plain link so logout works in captive portals.
+                            die('<a href="' . getUrl('home&mikrotik=logout&id=' . $bill['id']) . '" class="btn btn-success btn-xs btn-block">' . Lang::T('You are Online, Logout?') . '</a>');
                         } else {
                             if (!empty($_SESSION['nux-mac']) && !empty($_SESSION['nux-ip'])) {
-                                die('<a href="' . getUrl('home&mikrotik=login&id=' . $bill['id']) . '" onclick="return confirm(\'' . Lang::T('Connect to Internet?') . '\')" class="btn btn-danger btn-xs btn-block">' . Lang::T('Not Online, Login now?') . '</a>');
+                                // Use a plain link so login works in captive portals.
+                                die('<a href="' . getUrl('home&mikrotik=login&id=' . $bill['id']) . '" class="btn btn-danger btn-xs btn-block">' . Lang::T('Not Online, Login now?') . '</a>');
                             } else {
                                 die(Lang::T('-'));
                             }
@@ -44,7 +47,7 @@ switch ($action) {
         } else {
             die('--');
         }
-        break;
+        // Always exits via die() above.
     case 'bw_name':
         $bw = ORM::for_table('tbl_bandwidth')->select("name_bw")->find_one($routes['2']);
         echo $bw['name_bw'];

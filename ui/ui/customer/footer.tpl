@@ -98,7 +98,7 @@
             body.classList.add('dark-mode');
             toggleIcon.textContent = '🌞';
         }
-    
+
         function setMode(mode) {
             if (mode === 'dark') {
                 body.classList.add('dark-mode');
@@ -108,7 +108,7 @@
                 toggleIcon.textContent = '🌜';
             }
         }
-    
+
         toggleIcon.addEventListener('click', () => {
             if (body.classList.contains('dark-mode')) {
                 setMode('light');
@@ -160,6 +160,17 @@
         });
 
         function ask(field, text){
+            // NOTE: iOS captive portal webviews (CNA) often block native confirm()/alert().
+            // In that environment, bypass confirmation so critical actions (login/logout) still work.
+            try {
+                var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
+                if (/CaptiveNetworkSupport/i.test(ua)) {
+                    return true;
+                }
+            } catch (e) {
+                // ignore
+            }
+
             var txt = field.innerHTML;
             if (confirm(text)) {
                 setTimeout(() => {
