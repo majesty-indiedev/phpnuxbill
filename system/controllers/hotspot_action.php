@@ -51,29 +51,13 @@ switch ($action) {
             'nux_mac' => $_SESSION['nux-mac'] ?? '',
         ]);
 
+        // Option 1 UX: always respond instantly for iOS captive portals.
+        // The actual RouterOS work is handled asynchronously by a background worker (cron/systemd).
         $ui->assign('_title', ($op === 'login') ? Lang::T('Connecting') : Lang::T('Disconnecting'));
         $ui->assign('job', HotspotAction::get($jobId));
-        $ui->assign('refresh_url', getUrl("hotspot_action/status/$jobId"));
+        $ui->assign('status_url', getUrl("hotspot_action/status/$jobId"));
         $ui->assign('home_url', getUrl('home'));
-        $ui->display('customer/hotspot_wait.tpl');
-
-        // Release the PHP session lock before doing long-running work.
-        // Otherwise, the polling requests (status) can hang waiting for the lock,
-        // causing iOS captive portal "server stopped responding" errors.
-        if (function_exists('session_write_close')) {
-            @session_write_close();
-        }
-
-        // Send response now, then continue in background if the server supports it.
-        if (function_exists('fastcgi_finish_request')) {
-            fastcgi_finish_request();
-        } else {
-            // Best effort flush for non-FPM environments.
-            @ob_end_flush();
-            @flush();
-        }
-
-        HotspotAction::process($jobId);
+        $ui->display('customer/hotspot_request.tpl');
         die();
 
     case 'status':
