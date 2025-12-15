@@ -276,20 +276,21 @@
                     cache: false,
                     timeout: 8000,
                     success: function(html) {
-                        var rid = $a.attr('data-recharge-id');
-                        var $container = rid ? $('#login_status_' + rid) : null;
-                        if ($container && $container.length) {
-                            $container.html(html);
-                        } else {
-                            $a.replaceWith(html);
-                        }
-
                         // Detect whether we reached the expected final state.
-                        // - login final: shows Logout (btn-success)
-                        // - logout final: shows Login now (btn-danger)
+                        // IMPORTANT: do NOT replace the DOM while still pending, otherwise we lose the spinner
+                        // and the button appears "idle" even though the router hasn't flipped state yet.
                         var s = (html || '').toString();
                         if (op === 'login') {
                             if (s.indexOf('btn-success') !== -1 || s.indexOf('Logout') !== -1) {
+                                // Now that the router reports "online", update the UI once.
+                                var rid = $a.attr('data-recharge-id');
+                                var $container = rid ? $('#login_status_' + rid) : null;
+                                if ($container && $container.length) {
+                                    $container.html(html);
+                                } else {
+                                    $a.replaceWith(html);
+                                }
+
                                 // Some devices need a "connectivity kick" to re-check captive state
                                 // after hotspot login succeeds. Do a background probe + a one-time reload.
                                 try {
@@ -320,7 +321,17 @@
                                 return;
                             }
                         } else if (op === 'logout') {
-                            if (s.indexOf('btn-danger') !== -1 || s.indexOf('Login now') !== -1) return;
+                            if (s.indexOf('btn-danger') !== -1 || s.indexOf('Login now') !== -1) {
+                                // Now that the router reports "offline", update the UI once.
+                                var rid2 = $a.attr('data-recharge-id');
+                                var $container2 = rid2 ? $('#login_status_' + rid2) : null;
+                                if ($container2 && $container2.length) {
+                                    $container2.html(html);
+                                } else {
+                                    $a.replaceWith(html);
+                                }
+                                return;
+                            }
                         }
                         setTimeout(function() { pollUiState(startedAt); }, 2000);
                     },
