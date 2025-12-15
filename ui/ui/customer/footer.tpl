@@ -261,36 +261,43 @@
                 });
             }
 
-            function pollStatus(statusUrl, startedAt) {
-                // Stop after ~45s; user may have internet already, and we don't want infinite polling.
+            function pollUiState(startedAt) {
+                // Stop after ~45s; don't spin forever.
                 if (Date.now() - startedAt > 45000) {
                     refreshButton();
                     return;
                 }
+                if (!refreshUrl) {
+                    restore();
+                    return;
+                }
                 $.ajax({
-                    url: statusUrl + (statusUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(),
+                    url: refreshUrl + (refreshUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(),
                     cache: false,
-                    dataType: 'json',
-                    timeout: 4000,
-                    success: function(data) {
-                        if (!data || !data.ok) {
-                            setTimeout(function() { pollStatus(statusUrl, startedAt); }, 2000);
-                            return;
+                    timeout: 8000,
+                    success: function(html) {
+                        var rid = $a.attr('data-recharge-id');
+                        var $container = rid ? $('#login_status_' + rid) : null;
+                        if ($container && $container.length) {
+                            $container.html(html);
+                        } else {
+                            $a.replaceWith(html);
                         }
-                        if (data.status === 'success') {
-                            refreshButton();
-                            return;
+
+                        // Detect whether we reached the expected final state.
+                        // - login final: shows Logout (btn-success)
+                        // - logout final: shows Login now (btn-danger)
+                        var s = (html || '').toString();
+                        if (op === 'login') {
+                            if (s.indexOf('btn-success') !== -1 || s.indexOf('Logout') !== -1) return;
+                        } else if (op === 'logout') {
+                            if (s.indexOf('btn-danger') !== -1 || s.indexOf('Login now') !== -1) return;
                         }
-                        if (data.status === 'failed') {
-                            // Show original button again; user can try once more.
-                            restore();
-                            return;
-                        }
-                        setTimeout(function() { pollStatus(statusUrl, startedAt); }, 2000);
+                        setTimeout(function() { pollUiState(startedAt); }, 2000);
                     },
                     error: function() {
-                        // Network may change after login/logout. Best effort: refresh UI state.
-                        refreshButton();
+                        // If router/API check fails intermittently, keep trying a few times.
+                        setTimeout(function() { pollUiState(startedAt); }, 2000);
                     }
                 });
             }
@@ -302,11 +309,12 @@
                 dataType: 'json',
                 timeout: 8000,
                 success: function(data) {
-                    if (!data || !data.ok || !data.status_url) {
+                    if (!data || !data.ok) {
                         restore();
                         return;
                     }
-                    pollStatus(data.status_url, Date.now());
+                    // Poll the UI state (source of truth: router online check) until the button flips.
+                    pollUiState(Date.now());
                 },
                 error: function() {
                     // If enqueue_json fails, fall back to normal navigation (best effort).
