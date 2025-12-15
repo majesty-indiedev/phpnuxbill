@@ -30,14 +30,27 @@ switch ($action) {
                             $href = getUrl('hotspot_action/enqueue/logout/' . $bill['id']);
                             $enqueueJson = getUrl('hotspot_action/enqueue_json/logout/' . $bill['id']);
                             $refreshUrl = getUrl('autoload_user/isLogin/' . $bill['id']);
+
+                            $hrefOnline = getUrl('hotspot_action/enqueue/logout/' . $bill['id']);
+                            $hrefOffline = getUrl('hotspot_action/enqueue/login/' . $bill['id']);
+                            $enqueueOnline = getUrl('hotspot_action/enqueue_json/logout/' . $bill['id']);
+                            $enqueueOffline = getUrl('hotspot_action/enqueue_json/login/' . $bill['id']);
+                            $textOnline = Lang::T('You are Online, Logout?');
+                            $textOffline = Lang::T('Not Online, Login now?');
                             die(
                                 '<a href="' . $href . '" ' .
                                 'data-enqueue-json="' . $enqueueJson . '" ' .
                                 'data-refresh-url="' . $refreshUrl . '" ' .
                                 'data-recharge-id="' . (int) $bill['id'] . '" ' .
                                 'data-op="logout" ' .
+                                'data-href-online="' . $hrefOnline . '" ' .
+                                'data-href-offline="' . $hrefOffline . '" ' .
+                                'data-enqueue-online="' . $enqueueOnline . '" ' .
+                                'data-enqueue-offline="' . $enqueueOffline . '" ' .
+                                'data-text-online="' . htmlspecialchars($textOnline, ENT_QUOTES, 'UTF-8') . '" ' .
+                                'data-text-offline="' . htmlspecialchars($textOffline, ENT_QUOTES, 'UTF-8') . '" ' .
                                 'class="btn btn-success btn-xs btn-block js-hotspot-action">' .
-                                Lang::T('You are Online, Logout?') .
+                                $textOnline .
                                 '</a>'
                             );
                         } else {
@@ -46,14 +59,27 @@ switch ($action) {
                                 $href = getUrl('hotspot_action/enqueue/login/' . $bill['id']);
                                 $enqueueJson = getUrl('hotspot_action/enqueue_json/login/' . $bill['id']);
                                 $refreshUrl = getUrl('autoload_user/isLogin/' . $bill['id']);
+
+                                $hrefOnline = getUrl('hotspot_action/enqueue/logout/' . $bill['id']);
+                                $hrefOffline = getUrl('hotspot_action/enqueue/login/' . $bill['id']);
+                                $enqueueOnline = getUrl('hotspot_action/enqueue_json/logout/' . $bill['id']);
+                                $enqueueOffline = getUrl('hotspot_action/enqueue_json/login/' . $bill['id']);
+                                $textOnline = Lang::T('You are Online, Logout?');
+                                $textOffline = Lang::T('Not Online, Login now?');
                                 die(
                                     '<a href="' . $href . '" ' .
                                     'data-enqueue-json="' . $enqueueJson . '" ' .
                                     'data-refresh-url="' . $refreshUrl . '" ' .
                                     'data-recharge-id="' . (int) $bill['id'] . '" ' .
                                     'data-op="login" ' .
+                                    'data-href-online="' . $hrefOnline . '" ' .
+                                    'data-href-offline="' . $hrefOffline . '" ' .
+                                    'data-enqueue-online="' . $enqueueOnline . '" ' .
+                                    'data-enqueue-offline="' . $enqueueOffline . '" ' .
+                                    'data-text-online="' . htmlspecialchars($textOnline, ENT_QUOTES, 'UTF-8') . '" ' .
+                                    'data-text-offline="' . htmlspecialchars($textOffline, ENT_QUOTES, 'UTF-8') . '" ' .
                                     'class="btn btn-danger btn-xs btn-block js-hotspot-action">' .
-                                    Lang::T('Not Online, Login now?') .
+                                    $textOffline .
                                     '</a>'
                                 );
                             } else {

@@ -261,37 +261,80 @@
                 });
             }
 
-            function pollUiState(startedAt) {
-                // Stop after ~45s; don't spin forever.
-                if (Date.now() - startedAt > 45000) {
-                    refreshButton();
-                    return;
-                }
-                if (!refreshUrl) {
+            function flipButtonState(toState) {
+                // toState: 'online' or 'offline'
+                var rid = $a.attr('data-recharge-id');
+                var $container = rid ? $('#login_status_' + rid) : null;
+                if (!$container || !$container.length) {
                     restore();
                     return;
                 }
-                $.ajax({
-                    url: refreshUrl + (refreshUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(),
-                    cache: false,
-                    timeout: 8000,
-                    success: function(html) {
-                        // Detect whether we reached the expected final state.
-                        // IMPORTANT: do NOT replace the DOM while still pending, otherwise we lose the spinner
-                        // and the button appears "idle" even though the router hasn't flipped state yet.
-                        var s = (html || '').toString();
-                        if (op === 'login') {
-                            if (s.indexOf('btn-success') !== -1 || s.indexOf('Logout') !== -1) {
-                                // Now that the router reports "online", update the UI once.
-                                var rid = $a.attr('data-recharge-id');
-                                var $container = rid ? $('#login_status_' + rid) : null;
-                                if ($container && $container.length) {
-                                    $container.html(html);
-                                } else {
-                                    $a.replaceWith(html);
-                                }
 
-                                // Reload once after success so the OS/browser re-evaluates connectivity immediately.
+                var hrefOnline = $a.attr('data-href-online') || '';
+                var hrefOffline = $a.attr('data-href-offline') || '';
+                var enqueueOnline = $a.attr('data-enqueue-online') || '';
+                var enqueueOffline = $a.attr('data-enqueue-offline') || '';
+                var textOnline = $a.attr('data-text-online') || 'Online';
+                var textOffline = $a.attr('data-text-offline') || 'Offline';
+
+                if (toState === 'online') {
+                    $container.html(
+                        '<a href="' + hrefOnline + '" ' +
+                        'data-enqueue-json="' + enqueueOnline + '" ' +
+                        'data-refresh-url="' + refreshUrl + '" ' +
+                        'data-recharge-id="' + rid + '" ' +
+                        'data-op="logout" ' +
+                        'data-href-online="' + hrefOnline + '" ' +
+                        'data-href-offline="' + hrefOffline + '" ' +
+                        'data-enqueue-online="' + enqueueOnline + '" ' +
+                        'data-enqueue-offline="' + enqueueOffline + '" ' +
+                        'data-text-online="' + $('<div/>').text(textOnline).html() + '" ' +
+                        'data-text-offline="' + $('<div/>').text(textOffline).html() + '" ' +
+                        'class="btn btn-success btn-xs btn-block js-hotspot-action">' +
+                        $('<div/>').text(textOnline).html() +
+                        '</a>'
+                    );
+                } else {
+                    $container.html(
+                        '<a href="' + hrefOffline + '" ' +
+                        'data-enqueue-json="' + enqueueOffline + '" ' +
+                        'data-refresh-url="' + refreshUrl + '" ' +
+                        'data-recharge-id="' + rid + '" ' +
+                        'data-op="login" ' +
+                        'data-href-online="' + hrefOnline + '" ' +
+                        'data-href-offline="' + hrefOffline + '" ' +
+                        'data-enqueue-online="' + enqueueOnline + '" ' +
+                        'data-enqueue-offline="' + enqueueOffline + '" ' +
+                        'data-text-online="' + $('<div/>').text(textOnline).html() + '" ' +
+                        'data-text-offline="' + $('<div/>').text(textOffline).html() + '" ' +
+                        'class="btn btn-danger btn-xs btn-block js-hotspot-action">' +
+                        $('<div/>').text(textOffline).html() +
+                        '</a>'
+                    );
+                }
+            }
+
+            function pollJobStatus(statusUrl, startedAt) {
+                if (Date.now() - startedAt > 45000) {
+                    // Final fallback: refresh from server if it took too long
+                    refreshButton();
+                    return;
+                }
+                $.ajax({
+                    url: statusUrl + (statusUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(),
+                    cache: false,
+                    dataType: 'json',
+                    timeout: 3000,
+                    success: function(data) {
+                        if (!data || !data.ok) {
+                            setTimeout(function() { pollJobStatus(statusUrl, startedAt); }, 800);
+                            return;
+                        }
+                        if (data.status === 'success') {
+                            // Flip immediately (no RouterOS API check needed)
+                            if (op === 'login') {
+                                flipButtonState('online');
+                                // Reload once after CONNECT so the OS/browser re-evaluates connectivity immediately.
                                 try {
                                     var now = Date.now();
                                     var lastKick = 0;
@@ -300,59 +343,25 @@
                                     } catch (e) {
                                         lastKick = window.__nux_connect_kick_ts || 0;
                                     }
-                                    // At most once per 60s (prevents reload loops)
                                     if (!lastKick || (now - lastKick) > 60000) {
-                                        try {
-                                            sessionStorage.setItem('nux_connect_kick_ts', String(now));
-                                        } catch (e) {
-                                            window.__nux_connect_kick_ts = now;
-                                        }
-                                        setTimeout(function() {
-                                            try { window.location.reload(); } catch (e) {}
-                                        }, 800);
+                                        try { sessionStorage.setItem('nux_connect_kick_ts', String(now)); } catch (e) { window.__nux_connect_kick_ts = now; }
+                                        setTimeout(function() { try { window.location.reload(); } catch (e) {} }, 800);
                                     }
                                 } catch (e) {}
-                                return;
+                            } else {
+                                // Logout: just flip (no reload, per your request)
+                                flipButtonState('offline');
                             }
-                        } else if (op === 'logout') {
-                            if (s.indexOf('btn-danger') !== -1 || s.indexOf('Login now') !== -1) {
-                                // Now that the router reports "offline", update the UI once.
-                                var rid2 = $a.attr('data-recharge-id');
-                                var $container2 = rid2 ? $('#login_status_' + rid2) : null;
-                                if ($container2 && $container2.length) {
-                                    $container2.html(html);
-                                } else {
-                                    $a.replaceWith(html);
-                                }
-                                // Reload once after logout so the OS/browser re-evaluates connectivity immediately.
-                                try {
-                                    var now2 = Date.now();
-                                    var lastKick2 = 0;
-                                    try {
-                                        lastKick2 = parseInt(sessionStorage.getItem('nux_disconnect_kick_ts') || '0', 10) || 0;
-                                    } catch (e) {
-                                        lastKick2 = window.__nux_disconnect_kick_ts || 0;
-                                    }
-                                    // At most once per 60s (prevents reload loops)
-                                    if (!lastKick2 || (now2 - lastKick2) > 60000) {
-                                        try {
-                                            sessionStorage.setItem('nux_disconnect_kick_ts', String(now2));
-                                        } catch (e) {
-                                            window.__nux_disconnect_kick_ts = now2;
-                                        }
-                                        setTimeout(function() {
-                                            try { window.location.reload(); } catch (e) {}
-                                        }, 800);
-                                    }
-                                } catch (e) {}
-                                return;
-                            }
+                            return;
                         }
-                        setTimeout(function() { pollUiState(startedAt); }, 2000);
+                        if (data.status === 'failed') {
+                            restore();
+                            return;
+                        }
+                        setTimeout(function() { pollJobStatus(statusUrl, startedAt); }, 800);
                     },
                     error: function() {
-                        // If router/API check fails intermittently, keep trying a few times.
-                        setTimeout(function() { pollUiState(startedAt); }, 2000);
+                        setTimeout(function() { pollJobStatus(statusUrl, startedAt); }, 800);
                     }
                 });
             }
@@ -364,12 +373,12 @@
                 dataType: 'json',
                 timeout: 8000,
                 success: function(data) {
-                    if (!data || !data.ok) {
+                    if (!data || !data.ok || !data.status_url) {
                         restore();
                         return;
                     }
-                    // Poll the UI state (source of truth: router online check) until the button flips.
-                    pollUiState(Date.now());
+                    // Poll the job file status (fast) and flip UI immediately on success.
+                    pollJobStatus(data.status_url, Date.now());
                 },
                 error: function() {
                     // If enqueue_json fails, fall back to normal navigation (best effort).

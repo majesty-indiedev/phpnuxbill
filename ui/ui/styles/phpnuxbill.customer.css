@@ -750,3 +750,37 @@ select:not(#filterNavigateMenu),
     color: inherit;
     margin-right: -59px;
 }
+
+/* Hotspot login/logout action button: add stronger "clickable" affordance */
+a.js-hotspot-action.btn {
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    box-shadow: 0 10px 22px rgba(17, 24, 39, 0.18);
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    text-decoration: none !important;
+}
+
+a.js-hotspot-action.btn:hover,
+a.js-hotspot-action.btn:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(17, 24, 39, 0.22);
+    filter: brightness(1.03);
+    text-decoration: none !important;
+}
+
+a.js-hotspot-action.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 16px rgba(17, 24, 39, 0.18);
+    filter: brightness(0.98);
+}
+
+a.js-hotspot-action.btn.disabled,
+a.js-hotspot-action.btn[aria-disabled="true"] {
+    opacity: 0.8;
+    cursor: default;
+    transform: none;
+    filter: none;
+}
