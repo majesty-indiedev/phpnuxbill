@@ -23,7 +23,7 @@
                     {Lang::T('You are connected.')}
                 </p>
                 <p class="text-muted">
-                    {Lang::T('If this window does not close automatically, tap Dashboard or Done.')}
+                    {Lang::T('You can close this page and continue browsing.')}
                 </p>
             </div>
             <div class="panel-footer">
@@ -35,9 +35,6 @@
                         <a class="btn btn-default" href="{$apple_cna_url}">Done</a>
                     </div>
                 </div>
-                <small class="text-muted">
-                    Job: {$job.id} ({$job.status})
-                </small>
             </div>
         </div>
         <div class="lockscreen-footer text-center">

@@ -25,7 +25,10 @@
             <div class="panel-body">
                 {if $job.status == 'pending' || $job.status == 'running'}
                     <p class="text-muted">
-                        {Lang::T('Please wait')}… {Lang::T('Do not close this page.')}
+                        {Lang::T('Please wait')}… {Lang::T('This can take up to 30 seconds.')}
+                    </p>
+                    <p class="text-muted">
+                        {Lang::T('If your internet starts working, you may close this page and continue browsing.')}
                     </p>
                     <p>
                         <img src="{$app_url}/ui/ui/images/loading.gif" alt="loading" />
@@ -43,12 +46,12 @@
                         <a class="btn btn-default" href="{$home_url}">{Lang::T('Back')}</a>
                     </div>
                     <div class="btn-group">
-                        <a class="btn btn-primary" href="{$refresh_url}">{Lang::T('Try Again')}</a>
+                        <a class="btn btn-primary" href="{$refresh_url}">{Lang::T('Refresh')}</a>
+                    </div>
+                    <div class="btn-group">
+                        <a class="btn btn-success" href="http://captive.apple.com/hotspot-detect.html">Done</a>
                     </div>
                 </div>
-                <small class="text-muted">
-                    Job: {$job.id} ({$job.status})
-                </small>
             </div>
         </div>
         <div class="lockscreen-footer text-center">
