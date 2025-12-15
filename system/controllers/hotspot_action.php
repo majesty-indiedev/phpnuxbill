@@ -57,6 +57,13 @@ switch ($action) {
         $ui->assign('home_url', getUrl('home'));
         $ui->display('customer/hotspot_wait.tpl');
 
+        // Release the PHP session lock before doing long-running work.
+        // Otherwise, the polling requests (status) can hang waiting for the lock,
+        // causing iOS captive portal "server stopped responding" errors.
+        if (function_exists('session_write_close')) {
+            @session_write_close();
+        }
+
         // Send response now, then continue in background if the server supports it.
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
