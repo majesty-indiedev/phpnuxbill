@@ -27,11 +27,35 @@ switch ($action) {
                         if ((new $p['device'])->online_customer($user, $bill['routers'])) {
                             // iOS captive portal webviews often block native JS confirm()/alert().
                             // Use a plain link so logout works in captive portals.
-                            die('<a href="' . getUrl('hotspot_action/enqueue/logout/' . $bill['id']) . '" class="btn btn-success btn-xs btn-block">' . Lang::T('You are Online, Logout?') . '</a>');
+                            $href = getUrl('hotspot_action/enqueue/logout/' . $bill['id']);
+                            $enqueueJson = getUrl('hotspot_action/enqueue_json/logout/' . $bill['id']);
+                            $refreshUrl = getUrl('autoload_user/isLogin/' . $bill['id']);
+                            die(
+                                '<a href="' . $href . '" ' .
+                                'data-enqueue-json="' . $enqueueJson . '" ' .
+                                'data-refresh-url="' . $refreshUrl . '" ' .
+                                'data-recharge-id="' . (int) $bill['id'] . '" ' .
+                                'data-op="logout" ' .
+                                'class="btn btn-success btn-xs btn-block js-hotspot-action">' .
+                                Lang::T('You are Online, Logout?') .
+                                '</a>'
+                            );
                         } else {
                             if (!empty($_SESSION['nux-mac']) && !empty($_SESSION['nux-ip'])) {
                                 // Use a plain link so login works in captive portals.
-                                die('<a href="' . getUrl('hotspot_action/enqueue/login/' . $bill['id']) . '" class="btn btn-danger btn-xs btn-block">' . Lang::T('Not Online, Login now?') . '</a>');
+                                $href = getUrl('hotspot_action/enqueue/login/' . $bill['id']);
+                                $enqueueJson = getUrl('hotspot_action/enqueue_json/login/' . $bill['id']);
+                                $refreshUrl = getUrl('autoload_user/isLogin/' . $bill['id']);
+                                die(
+                                    '<a href="' . $href . '" ' .
+                                    'data-enqueue-json="' . $enqueueJson . '" ' .
+                                    'data-refresh-url="' . $refreshUrl . '" ' .
+                                    'data-recharge-id="' . (int) $bill['id'] . '" ' .
+                                    'data-op="login" ' .
+                                    'class="btn btn-danger btn-xs btn-block js-hotspot-action">' .
+                                    Lang::T('Not Online, Login now?') .
+                                    '</a>'
+                                );
                             } else {
                                 die(Lang::T('-'));
                             }

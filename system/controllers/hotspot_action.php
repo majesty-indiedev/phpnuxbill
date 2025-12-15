@@ -100,6 +100,93 @@ switch ($action) {
         }
         die();
 
+    case 'enqueue_json':
+        // Dashboard AJAX flow: enqueue without navigating away.
+        $op = $routes[2] ?? '';
+        $rechargeId = (int) ($routes[3] ?? 0);
+
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        if (!in_array($op, ['login', 'logout'], true) || $rechargeId <= 0) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => 'invalid_request']);
+            die();
+        }
+
+        // Validate the recharge belongs to the user
+        $bill = ORM::for_table('tbl_user_recharges')->find_one($rechargeId);
+        if (!$bill || (int) $bill['customer_id'] !== (int) $user['id']) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'not_found']);
+            die();
+        }
+
+        // For login we need hotspot params
+        if ($op === 'login') {
+            if (empty($_SESSION['nux-ip']) || empty($_SESSION['nux-mac'])) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'missing_nux']);
+                die();
+            }
+        }
+
+        try {
+            $jobId = HotspotAction::create([
+                'action' => $op,
+                'customer_id' => (int) $user['id'],
+                'recharge_id' => $rechargeId,
+                'routers' => $bill['routers'],
+                'nux_ip' => $_SESSION['nux-ip'] ?? '',
+                'nux_mac' => $_SESSION['nux-mac'] ?? '',
+            ]);
+        } catch (Throwable $e) {
+            error_log('HotspotAction enqueue_json failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'error' => 'server_error']);
+            die();
+        } catch (Exception $e) {
+            error_log('HotspotAction enqueue_json failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'error' => 'server_error']);
+            die();
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'job_id' => $jobId,
+            'status_url' => getUrl("hotspot_action/status_json/$jobId"),
+        ]);
+        die();
+
+    case 'status_json':
+        // Lightweight polling endpoint for dashboard (and optional for captive portals).
+        $jobId = $routes[2] ?? '';
+        $job = $jobId ? HotspotAction::get($jobId) : null;
+
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        if (!$job) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'not_found']);
+            die();
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'id' => $job['id'] ?? '',
+            'status' => $job['status'] ?? '',
+            'action' => $job['action'] ?? '',
+            'message' => $job['message'] ?? '',
+            'updated_at' => $job['updated_at'] ?? '',
+        ]);
+        die();
+
     case 'status':
     default:
         $jobId = $routes[2] ?? '';

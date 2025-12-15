@@ -207,6 +207,114 @@
             }
             return null;
         }
+
+        // Dashboard: keep user on page while hotspot login/logout runs in the background worker.
+        // - Click button -> enqueue_json -> spinner on button -> poll status_json -> refresh button state.
+        $(document).on('click', 'a.js-hotspot-action', function(e) {
+            // If JS is unavailable, the link will navigate to the captive-friendly page.
+            e.preventDefault();
+
+            var $a = $(this);
+            if ($a.data('busy')) return;
+            $a.data('busy', true);
+
+            var originalHtml = $a.html();
+            var enqueueUrl = $a.attr('data-enqueue-json');
+            var refreshUrl = $a.attr('data-refresh-url');
+            var op = ($a.attr('data-op') || '').toLowerCase();
+
+            // Spinner + disable
+            var busyText = (op === 'logout') ? ' Disconnecting…' : ' Granting access…';
+            $a.html('<span class="loading"></span>' + busyText);
+            // Make it truly non-interactive (anchors don't support disabled natively)
+            $a.addClass('disabled')
+              .attr('aria-disabled', 'true')
+              .attr('tabindex', '-1')
+              .css('pointer-events', 'none');
+
+            function restore() {
+                $a.html(originalHtml);
+                $a.removeClass('disabled')
+                  .removeAttr('aria-disabled')
+                  .removeAttr('tabindex')
+                  .css('pointer-events', '');
+                $a.data('busy', false);
+            }
+
+            function refreshButton() {
+                if (!refreshUrl) {
+                    restore();
+                    return;
+                }
+                $.get(refreshUrl, function(html) {
+                    // Replace the whole container if present, otherwise just replace the link
+                    var rid = $a.attr('data-recharge-id');
+                    var $container = rid ? $('#login_status_' + rid) : null;
+                    if ($container && $container.length) {
+                        $container.html(html);
+                    } else {
+                        $a.replaceWith(html);
+                    }
+                }).always(function() {
+                    // In case the refresh fails, at least restore the button.
+                    restore();
+                });
+            }
+
+            function pollStatus(statusUrl, startedAt) {
+                // Stop after ~45s; user may have internet already, and we don't want infinite polling.
+                if (Date.now() - startedAt > 45000) {
+                    refreshButton();
+                    return;
+                }
+                $.ajax({
+                    url: statusUrl + (statusUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(),
+                    cache: false,
+                    dataType: 'json',
+                    timeout: 4000,
+                    success: function(data) {
+                        if (!data || !data.ok) {
+                            setTimeout(function() { pollStatus(statusUrl, startedAt); }, 2000);
+                            return;
+                        }
+                        if (data.status === 'success') {
+                            refreshButton();
+                            return;
+                        }
+                        if (data.status === 'failed') {
+                            // Show original button again; user can try once more.
+                            restore();
+                            return;
+                        }
+                        setTimeout(function() { pollStatus(statusUrl, startedAt); }, 2000);
+                    },
+                    error: function() {
+                        // Network may change after login/logout. Best effort: refresh UI state.
+                        refreshButton();
+                    }
+                });
+            }
+
+            // Enqueue the job, then poll its status.
+            $.ajax({
+                url: enqueueUrl + (enqueueUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(),
+                cache: false,
+                dataType: 'json',
+                timeout: 8000,
+                success: function(data) {
+                    if (!data || !data.ok || !data.status_url) {
+                        restore();
+                        return;
+                    }
+                    pollStatus(data.status_url, Date.now());
+                },
+                error: function() {
+                    // If enqueue_json fails, fall back to normal navigation (best effort).
+                    $a.data('busy', false);
+                    window.location.href = $a.attr('href');
+                }
+            });
+        });
     </script>
 {/literal}
 <script>
