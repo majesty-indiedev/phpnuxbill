@@ -24,12 +24,24 @@
             </div>
             <div class="panel-body">
                 {if $job.status == 'pending' || $job.status == 'running'}
-                    <p class="text-muted">
-                        {Lang::T('Please wait')}… {Lang::T('This can take up to 30 seconds.')}
-                    </p>
-                    <p class="text-muted">
-                        {Lang::T('If your internet starts working, you may close this page and continue browsing.')}
-                    </p>
+                    {if $job.action == 'logout'}
+                        <p class="text-muted">
+                            {Lang::T('Please wait')}… {Lang::T('This can take up to 30 seconds.')}
+                        </p>
+                        <p class="text-muted">
+                            {Lang::T('You will lose internet access once disconnected.')}
+                        </p>
+                        <p class="text-muted">
+                            {Lang::T('You can turn it back on later from your account.')}
+                        </p>
+                    {else}
+                        <p class="text-muted">
+                            {Lang::T('Please wait')}… {Lang::T('This can take up to 30 seconds.')}
+                        </p>
+                        <p class="text-muted">
+                            {Lang::T('If your internet starts working, you may close this page and continue browsing.')}
+                        </p>
+                    {/if}
                     <p>
                         <img src="{$app_url}/ui/ui/images/loading.gif" alt="loading" />
                     </p>
