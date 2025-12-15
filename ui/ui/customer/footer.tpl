@@ -291,31 +291,25 @@
                                     $a.replaceWith(html);
                                 }
 
-                                // Some devices need a "connectivity kick" to re-check captive state
-                                // after hotspot login succeeds. Do a background probe + a one-time reload.
+                                // Reload once after success so the OS/browser re-evaluates connectivity immediately.
                                 try {
-                                    var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
-                                    var isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
-                                    if (isMobile) {
-                                        var now = Date.now();
-                                        var lastKick = 0;
+                                    var now = Date.now();
+                                    var lastKick = 0;
+                                    try {
+                                        lastKick = parseInt(sessionStorage.getItem('nux_connect_kick_ts') || '0', 10) || 0;
+                                    } catch (e) {
+                                        lastKick = window.__nux_connect_kick_ts || 0;
+                                    }
+                                    // At most once per 60s (prevents reload loops)
+                                    if (!lastKick || (now - lastKick) > 60000) {
                                         try {
-                                            lastKick = parseInt(sessionStorage.getItem('nux_connect_kick_ts') || '0', 10) || 0;
+                                            sessionStorage.setItem('nux_connect_kick_ts', String(now));
                                         } catch (e) {
-                                            lastKick = window.__nux_connect_kick_ts || 0;
+                                            window.__nux_connect_kick_ts = now;
                                         }
-                                        // At most once per 60s (prevents reload loops)
-                                        if (!lastKick || (now - lastKick) > 60000) {
-                                            try {
-                                                sessionStorage.setItem('nux_connect_kick_ts', String(now));
-                                            } catch (e) {
-                                                window.__nux_connect_kick_ts = now;
-                                            }
-                                            // Reload once so the OS/webview re-evaluates captive status.
-                                            setTimeout(function() {
-                                                try { window.location.reload(); } catch (e) {}
-                                            }, 800);
-                                        }
+                                        setTimeout(function() {
+                                            try { window.location.reload(); } catch (e) {}
+                                        }, 800);
                                     }
                                 } catch (e) {}
                                 return;
@@ -330,6 +324,27 @@
                                 } else {
                                     $a.replaceWith(html);
                                 }
+                                // Reload once after logout so the OS/browser re-evaluates connectivity immediately.
+                                try {
+                                    var now2 = Date.now();
+                                    var lastKick2 = 0;
+                                    try {
+                                        lastKick2 = parseInt(sessionStorage.getItem('nux_disconnect_kick_ts') || '0', 10) || 0;
+                                    } catch (e) {
+                                        lastKick2 = window.__nux_disconnect_kick_ts || 0;
+                                    }
+                                    // At most once per 60s (prevents reload loops)
+                                    if (!lastKick2 || (now2 - lastKick2) > 60000) {
+                                        try {
+                                            sessionStorage.setItem('nux_disconnect_kick_ts', String(now2));
+                                        } catch (e) {
+                                            window.__nux_disconnect_kick_ts = now2;
+                                        }
+                                        setTimeout(function() {
+                                            try { window.location.reload(); } catch (e) {}
+                                        }, 800);
+                                    }
+                                } catch (e) {}
                                 return;
                             }
                         }
