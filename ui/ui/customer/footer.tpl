@@ -289,7 +289,35 @@
                         // - logout final: shows Login now (btn-danger)
                         var s = (html || '').toString();
                         if (op === 'login') {
-                            if (s.indexOf('btn-success') !== -1 || s.indexOf('Logout') !== -1) return;
+                            if (s.indexOf('btn-success') !== -1 || s.indexOf('Logout') !== -1) {
+                                // iOS captive portal sometimes needs a connectivity re-check to "unlock" internet,
+                                // even after the router granted access. Kick the OS re-check once.
+                                try {
+                                    var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
+                                    if (/CaptiveNetworkSupport/i.test(ua)) {
+                                        try {
+                                            if (!sessionStorage.getItem('nux_cna_kick')) {
+                                                sessionStorage.setItem('nux_cna_kick', '1');
+                                                // Background probe (does not navigate away)
+                                                var img = new Image();
+                                                img.src = 'http://captive.apple.com/hotspot-detect.html?t=' + Date.now();
+                                                // One-time reload inside CNA so iOS reevaluates the captive state
+                                                setTimeout(function() {
+                                                    try { window.location.reload(); } catch (e) {}
+                                                }, 1200);
+                                            }
+                                        } catch (e) {
+                                            // If sessionStorage is blocked, still try the probe + reload once.
+                                            var img2 = new Image();
+                                            img2.src = 'http://captive.apple.com/hotspot-detect.html?t=' + Date.now();
+                                            setTimeout(function() {
+                                                try { window.location.reload(); } catch (e) {}
+                                            }, 1200);
+                                        }
+                                    }
+                                } catch (e) {}
+                                return;
+                            }
                         } else if (op === 'logout') {
                             if (s.indexOf('btn-danger') !== -1 || s.indexOf('Login now') !== -1) return;
                         }
