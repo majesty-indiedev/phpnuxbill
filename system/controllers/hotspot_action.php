@@ -73,18 +73,30 @@ switch ($action) {
             error_log('HotspotAction render failed: ' . $e->getMessage());
             header('Content-Type: text/html; charset=utf-8');
             echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
-            echo '<title>Request received</title></head><body style="font-family: Arial, sans-serif; padding:16px">';
-            echo '<h3>Request received</h3>';
-            echo '<p>You may close this page now. Internet may take up to 30 seconds.</p>';
-            echo '</body></html>';
+            echo '<title>Connecting…</title></head><body style="font-family: Arial, sans-serif; padding:16px; background:#f5f5f5;">';
+            echo '<div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:8px;overflow:hidden">';
+            echo '<div style="background:#337ab7;color:#fff;padding:12px 14px;font-weight:600">Granting internet access…</div>';
+            echo '<div style="padding:14px">';
+            echo '<p style="margin:0 0 8px;color:#555">You can close this page now.</p>';
+            echo '<p style="margin:0 0 8px;color:#555">As soon as the connection is established, your Wi‑Fi icon will show internet access.</p>';
+            echo '<p style="margin:0;color:#555">This can take up to 30 seconds. Then you can use TikTok, Instagram, Facebook, and more.</p>';
+            echo '<hr style="border:none;border-top:1px solid #eee;margin:12px 0">';
+            echo '<p style="margin:0;color:#777">On iPhone, tap Done (top right) to close this window.</p>';
+            echo '</div></div></body></html>';
         } catch (Exception $e) {
             error_log('HotspotAction render failed: ' . $e->getMessage());
             header('Content-Type: text/html; charset=utf-8');
             echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
-            echo '<title>Request received</title></head><body style="font-family: Arial, sans-serif; padding:16px">';
-            echo '<h3>Request received</h3>';
-            echo '<p>You may close this page now. Internet may take up to 30 seconds.</p>';
-            echo '</body></html>';
+            echo '<title>Connecting…</title></head><body style="font-family: Arial, sans-serif; padding:16px; background:#f5f5f5;">';
+            echo '<div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:8px;overflow:hidden">';
+            echo '<div style="background:#337ab7;color:#fff;padding:12px 14px;font-weight:600">Granting internet access…</div>';
+            echo '<div style="padding:14px">';
+            echo '<p style="margin:0 0 8px;color:#555">You can close this page now.</p>';
+            echo '<p style="margin:0 0 8px;color:#555">As soon as the connection is established, your Wi‑Fi icon will show internet access.</p>';
+            echo '<p style="margin:0;color:#555">This can take up to 30 seconds. Then you can use TikTok, Instagram, Facebook, and more.</p>';
+            echo '<hr style="border:none;border-top:1px solid #eee;margin:12px 0">';
+            echo '<p style="margin:0;color:#777">On iPhone, tap Done (top right) to close this window.</p>';
+            echo '</div></div></body></html>';
         }
         die();
 

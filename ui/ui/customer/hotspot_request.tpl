@@ -30,14 +30,15 @@
                         {Lang::T('You can turn it back on later from your account.')}
                     </p>
                 {else}
-                    <p class="text-muted">
-                        {Lang::T('Login request received.')}
+                    <h4 style="margin-top:0">🛜 {Lang::T('Granting internet access…')}</h4>
+                    <p class="text-muted" style="margin-bottom:6px">
+                        ⏳ {Lang::T('You can close this page now.')}
+                    </p>
+                    <p class="text-muted" style="margin-bottom:6px">
+                        ✅ {Lang::T('As soon as the connection is established, your Wi‑Fi icon will show internet access.')}
                     </p>
                     <p class="text-muted">
-                        {Lang::T('Internet may take up to 30 seconds to start working.')}
-                    </p>
-                    <p class="text-muted">
-                        {Lang::T('You may close this page now and continue browsing your favorite apps.')}
+                        📱 {Lang::T('This can take up to 30 seconds. Then you can use your favorite apps like TikTok, Instagram, Facebook, and more.')}
                     </p>
                 {/if}
                 <hr>
