@@ -7,43 +7,32 @@
     <link rel="shortcut icon" href="{$app_url}/ui/ui/images/logo.png" type="image/x-icon" />
     <link rel="stylesheet" href="{$app_url}/ui/ui/styles/bootstrap.min.css">
     <link rel="stylesheet" href="{$app_url}/ui/ui/styles/modern-AdminLTE.min.css">
-    {* Proper head refresh (iOS CNA is picky about meta refresh placement) *}
-    {if isset($job) && ($job.status == 'pending' || $job.status == 'running')}
-        <meta http-equiv="refresh" content="2;url={$refresh_url}">
-    {/if}
 </head>
 <body class="hold-transition lockscreen">
     <div class="lockscreen-wrapper" style="max-width: 520px;">
-        <div class="panel panel-primary">
+        <div class="panel panel-success">
             <div class="panel-heading">
                 {if $job.action == 'logout'}
-                    {Lang::T('Disconnecting')}…
+                    {Lang::T('Logout Request successfully')}
                 {else}
-                    {Lang::T('Connecting')}…
+                    {Lang::T('Login Request successfully')}
                 {/if}
             </div>
             <div class="panel-body">
-                {if $job.status == 'pending' || $job.status == 'running'}
-                    <p class="text-muted">
-                        {Lang::T('Please wait')}… {Lang::T('Do not close this page.')}
-                    </p>
-                    <p>
-                        <img src="{$app_url}/ui/ui/images/loading.gif" alt="loading" />
-                    </p>
-                {elseif $job.status == 'failed'}
-                    <div class="alert alert-danger">
-                        <b>{Lang::T('Failed to connect to device')}</b><br>
-                        {$job.message|escape}
-                    </div>
-                {/if}
+                <p class="text-muted">
+                    {Lang::T('You are connected.')}
+                </p>
+                <p class="text-muted">
+                    {Lang::T('If this window does not close automatically, tap Dashboard or Done.')}
+                </p>
             </div>
             <div class="panel-footer">
                 <div class="btn-group btn-group-justified mb15">
                     <div class="btn-group">
-                        <a class="btn btn-default" href="{$home_url}">{Lang::T('Back')}</a>
+                        <a class="btn btn-primary" href="{$home_url}">{Lang::T('Dashboard')}</a>
                     </div>
                     <div class="btn-group">
-                        <a class="btn btn-primary" href="{$refresh_url}">{Lang::T('Try Again')}</a>
+                        <a class="btn btn-default" href="{$apple_cna_url}">Done</a>
                     </div>
                 </div>
                 <small class="text-muted">

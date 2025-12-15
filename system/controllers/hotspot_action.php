@@ -78,11 +78,16 @@ switch ($action) {
         }
 
         if ($job['status'] === 'success') {
-            if (($job['action'] ?? '') === 'login') {
-                r2(getUrl('home'), 's', Lang::T('Login Request successfully'));
-            } else {
-                r2(getUrl('home'), 's', Lang::T('Logout Request successfully'));
-            }
+            // In iOS captive portal (CNA), long-running pages / repeated refreshes can lead to
+            // "server stopped responding" even if the login already succeeded.
+            // Stop polling and show a success page with clear next actions.
+            $ui->assign('_title', Lang::T('Connected'));
+            $ui->assign('job', $job);
+            $ui->assign('home_url', getUrl('home'));
+            // iOS captive portal often closes itself when it can fetch this URL successfully.
+            $ui->assign('apple_cna_url', 'http://captive.apple.com/hotspot-detect.html');
+            $ui->display('customer/hotspot_done.tpl');
+            die();
         }
 
         // Still pending/running or failed -> show wait page (with retry button on failure)
