@@ -290,29 +290,30 @@
                         var s = (html || '').toString();
                         if (op === 'login') {
                             if (s.indexOf('btn-success') !== -1 || s.indexOf('Logout') !== -1) {
-                                // iOS captive portal sometimes needs a connectivity re-check to "unlock" internet,
-                                // even after the router granted access. Kick the OS re-check once.
+                                // Some devices need a "connectivity kick" to re-check captive state
+                                // after hotspot login succeeds. Do a background probe + a one-time reload.
                                 try {
                                     var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
-                                    if (/CaptiveNetworkSupport/i.test(ua)) {
+                                    var isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+                                    if (isMobile) {
+                                        var now = Date.now();
+                                        var lastKick = 0;
                                         try {
-                                            if (!sessionStorage.getItem('nux_cna_kick')) {
-                                                sessionStorage.setItem('nux_cna_kick', '1');
-                                                // Background probe (does not navigate away)
-                                                var img = new Image();
-                                                img.src = 'http://captive.apple.com/hotspot-detect.html?t=' + Date.now();
-                                                // One-time reload inside CNA so iOS reevaluates the captive state
-                                                setTimeout(function() {
-                                                    try { window.location.reload(); } catch (e) {}
-                                                }, 1200);
-                                            }
+                                            lastKick = parseInt(sessionStorage.getItem('nux_connect_kick_ts') || '0', 10) || 0;
                                         } catch (e) {
-                                            // If sessionStorage is blocked, still try the probe + reload once.
-                                            var img2 = new Image();
-                                            img2.src = 'http://captive.apple.com/hotspot-detect.html?t=' + Date.now();
+                                            lastKick = window.__nux_connect_kick_ts || 0;
+                                        }
+                                        // At most once per 60s (prevents reload loops)
+                                        if (!lastKick || (now - lastKick) > 60000) {
+                                            try {
+                                                sessionStorage.setItem('nux_connect_kick_ts', String(now));
+                                            } catch (e) {
+                                                window.__nux_connect_kick_ts = now;
+                                            }
+                                            // Reload once so the OS/webview re-evaluates captive status.
                                             setTimeout(function() {
                                                 try { window.location.reload(); } catch (e) {}
-                                            }, 1200);
+                                            }, 800);
                                         }
                                     }
                                 } catch (e) {}
