@@ -42,14 +42,22 @@ switch ($action) {
             }
         }
 
-        $jobId = HotspotAction::create([
-            'action' => $op,
-            'customer_id' => (int) $user['id'],
-            'recharge_id' => $rechargeId,
-            'routers' => $bill['routers'],
-            'nux_ip' => $_SESSION['nux-ip'] ?? '',
-            'nux_mac' => $_SESSION['nux-mac'] ?? '',
-        ]);
+        try {
+            $jobId = HotspotAction::create([
+                'action' => $op,
+                'customer_id' => (int) $user['id'],
+                'recharge_id' => $rechargeId,
+                'routers' => $bill['routers'],
+                'nux_ip' => $_SESSION['nux-ip'] ?? '',
+                'nux_mac' => $_SESSION['nux-mac'] ?? '',
+            ]);
+        } catch (Throwable $e) {
+            error_log('HotspotAction enqueue failed: ' . $e->getMessage());
+            r2(getUrl('home'), 'e', Lang::T('System error. Please contact support.'));
+        } catch (Exception $e) {
+            error_log('HotspotAction enqueue failed: ' . $e->getMessage());
+            r2(getUrl('home'), 'e', Lang::T('System error. Please contact support.'));
+        }
 
         // Option 1 UX: always respond instantly for iOS captive portals.
         // The actual RouterOS work is handled asynchronously by a background worker (cron/systemd).
@@ -57,7 +65,27 @@ switch ($action) {
         $ui->assign('job', HotspotAction::get($jobId));
         $ui->assign('status_url', getUrl("hotspot_action/status/$jobId"));
         $ui->assign('home_url', getUrl('home'));
-        $ui->display('customer/hotspot_request.tpl');
+        // Fail-safe: if Smarty/template fails on some servers, return a minimal HTML response
+        // (better than the generic internal error page inside captive portals).
+        try {
+            $ui->display('customer/hotspot_request.tpl');
+        } catch (Throwable $e) {
+            error_log('HotspotAction render failed: ' . $e->getMessage());
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+            echo '<title>Request received</title></head><body style="font-family: Arial, sans-serif; padding:16px">';
+            echo '<h3>Request received</h3>';
+            echo '<p>You may close this page now. Internet may take up to 30 seconds.</p>';
+            echo '</body></html>';
+        } catch (Exception $e) {
+            error_log('HotspotAction render failed: ' . $e->getMessage());
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+            echo '<title>Request received</title></head><body style="font-family: Arial, sans-serif; padding:16px">';
+            echo '<h3>Request received</h3>';
+            echo '<p>You may close this page now. Internet may take up to 30 seconds.</p>';
+            echo '</body></html>';
+        }
         die();
 
     case 'status':

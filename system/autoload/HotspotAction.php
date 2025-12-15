@@ -8,6 +8,25 @@
 
 class HotspotAction
 {
+    private static function newId(): string
+    {
+        // Prefer cryptographically secure IDs when available.
+        try {
+            return bin2hex(random_bytes(8));
+        } catch (Throwable $e) {
+            // fall through
+        } catch (Exception $e) {
+            // fall through
+        }
+        if (function_exists('openssl_random_pseudo_bytes')) {
+            $b = @openssl_random_pseudo_bytes(8);
+            if (is_string($b) && strlen($b) === 8) {
+                return bin2hex($b);
+            }
+        }
+        return substr(str_replace('.', '', uniqid('', true)), -16);
+    }
+
     private static function dir(): string
     {
         global $CACHE_PATH;
@@ -22,16 +41,21 @@ class HotspotAction
     private static function ensureDir(): void
     {
         $dir = self::dir();
-        if (!file_exists($dir)) {
-            @mkdir($dir, 0775, true);
-            @touch($dir . DIRECTORY_SEPARATOR . 'index.html');
+        if (!is_dir($dir)) {
+            if (!@mkdir($dir, 0775, true) && !is_dir($dir)) {
+                throw new Exception("HotspotAction cache directory is not writable");
+            }
+            @file_put_contents($dir . DIRECTORY_SEPARATOR . 'index.html', '');
+        }
+        if (!is_writable($dir)) {
+            throw new Exception("HotspotAction cache directory is not writable");
         }
     }
 
     public static function create(array $data): string
     {
         self::ensureDir();
-        $id = bin2hex(random_bytes(8));
+        $id = self::newId();
 
         $now = date('Y-m-d H:i:s');
         $job = array_merge([
@@ -45,7 +69,10 @@ class HotspotAction
             'finished_at' => null,
         ], $data);
 
-        file_put_contents(self::path($id), json_encode($job, JSON_PRETTY_PRINT));
+        $written = @file_put_contents(self::path($id), json_encode($job, JSON_PRETTY_PRINT));
+        if ($written === false) {
+            throw new Exception("Failed to write hotspot action job file");
+        }
         return $id;
     }
 
@@ -70,7 +97,8 @@ class HotspotAction
         }
         $job = array_merge($job, $fields);
         $job['updated_at'] = date('Y-m-d H:i:s');
-        return (bool) file_put_contents(self::path($id), json_encode($job, JSON_PRETTY_PRINT));
+        $written = @file_put_contents(self::path($id), json_encode($job, JSON_PRETTY_PRINT));
+        return $written !== false;
     }
 
     /**
