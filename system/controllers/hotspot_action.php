@@ -35,6 +35,18 @@ switch ($action) {
             r2(getUrl('home'), 'e', Lang::T('Not Found'));
         }
 
+        // RADIUS plans do not support RouterOS "active login" from the dashboard.
+        // They authenticate at the hotspot portal via FreeRADIUS (radius.php).
+        $plan = ORM::for_table('tbl_plans')->find_one($bill['plan_id']);
+        $isRadiusPlan = $plan && (
+            ((int) ($plan['is_radius'] ?? 0) === 1) ||
+            in_array(($plan['device'] ?? ''), ['Radius', 'RadiusRest'], true) ||
+            (strtolower((string) ($bill['routers'] ?? '')) === 'radius')
+        );
+        if ($isRadiusPlan && $op === 'login') {
+            r2(getUrl('home'), 'e', Lang::T('This plan uses RADIUS. Please login on the hotspot portal page.'));
+        }
+
         // For login we need hotspot params
         if ($op === 'login') {
             if (empty($_SESSION['nux-ip']) || empty($_SESSION['nux-mac'])) {
@@ -121,6 +133,20 @@ switch ($action) {
         if (!$bill || (int) $bill['customer_id'] !== (int) $user['id']) {
             http_response_code(404);
             echo json_encode(['ok' => false, 'error' => 'not_found']);
+            die();
+        }
+
+        // RADIUS plans do not support RouterOS "active login" from the dashboard.
+        // They authenticate at the hotspot portal via FreeRADIUS (radius.php).
+        $plan = ORM::for_table('tbl_plans')->find_one($bill['plan_id']);
+        $isRadiusPlan = $plan && (
+            ((int) ($plan['is_radius'] ?? 0) === 1) ||
+            in_array(($plan['device'] ?? ''), ['Radius', 'RadiusRest'], true) ||
+            (strtolower((string) ($bill['routers'] ?? '')) === 'radius')
+        );
+        if ($isRadiusPlan && $op === 'login') {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => 'radius_plan']);
             die();
         }
 

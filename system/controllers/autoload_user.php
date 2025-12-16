@@ -20,6 +20,17 @@ switch ($action) {
         if ($bill['type'] == 'Hotspot' && $bill['status'] == 'on') {
             $p = ORM::for_table('tbl_plans')->find_one($bill['plan_id']);
             $dvc = Package::getDevice($p);
+            // RADIUS plans are authenticated by the NAS via FreeRADIUS (radius.php),
+            // not by RouterOS "active login/logout". Avoid trying to "connect to device"
+            // from the dashboard, which can cause confusing errors like "Failed to connect to device".
+            $isRadiusPlan = ((int) ($p['is_radius'] ?? 0) === 1) ||
+                in_array(($p['device'] ?? ''), ['Radius', 'RadiusRest'], true) ||
+                (strtolower((string) ($bill['routers'] ?? '')) === 'radius');
+            if ($isRadiusPlan) {
+                $txt = Lang::T('Managed by RADIUS (login happens on the hotspot portal)');
+                $safeTxt = htmlspecialchars($txt, ENT_QUOTES, 'UTF-8');
+                die('<a href="#" class="btn btn-default btn-xs btn-block disabled" aria-disabled="true" onclick="return false;">' . $safeTxt . '</a>');
+            }
             if ($_app_stage != 'demo') {
                 try {
                     if (file_exists($dvc)) {
