@@ -27,7 +27,7 @@ switch ($action) {
                 in_array(($p['device'] ?? ''), ['Radius', 'RadiusRest'], true) ||
                 (strtolower((string) ($bill['routers'] ?? '')) === 'radius');
             if ($isRadiusPlan) {
-                $txt = Lang::T('Managed by RADIUS (login happens on the hotspot portal)');
+                $txt = Lang::T('Radius Managed');
                 $safeTxt = htmlspecialchars($txt, ENT_QUOTES, 'UTF-8');
                 die('<a href="#" class="btn btn-default btn-xs btn-block disabled" aria-disabled="true" onclick="return false;">' . $safeTxt . '</a>');
             }
