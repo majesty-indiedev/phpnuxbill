@@ -102,7 +102,7 @@
                             </td>
                         </tr>
                     {/if}
-                    {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_c['hs_auth_method'] == 'hchap'}
+                    {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_bill['routers'] != 'radius' && $_c['hs_auth_method'] == 'hchap'}
                         <tr>
                             <td class="small text-primary text-uppercase text-normal">{Lang::T('Login Status')}</td>
                             <td class="small mb15">
@@ -148,7 +148,7 @@
         {/foreach}
     </div>
     {foreach $_bills as $_bill}
-        {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_c['hs_auth_method'] != 'hchap'}
+        {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_bill['routers'] != 'radius' && $_c['hs_auth_method'] != 'hchap'}
             <script>
                 setTimeout(() => {
                     $.ajax({
