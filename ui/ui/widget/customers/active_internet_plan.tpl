@@ -1,7 +1,7 @@
 {if $_bills}
     <div class="box box-primary box-solid">
         {foreach $_bills as $_bill}
-            {if $_bill['routers'] != 'radius'}
+            {if ($_bill['routers']|lower) != 'radius'}
                 <div class="box-header">
                     <h3 class="box-title">{$_bill['routers']}</h3>
                     <div class="btn-group pull-right">
@@ -94,7 +94,7 @@
                             <td class="small mb15">{$nux_mac}</td>
                         </tr>
                     {/if}
-                    {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_bill['routers'] != 'radius' && $_c['hs_auth_method'] != 'hchap'}
+                    {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && ($_bill['routers']|lower) != 'radius' && $_c['hs_auth_method'] != 'hchap'}
                         <tr>
                             <td class="small text-primary text-uppercase text-normal">{Lang::T('Login Status')}</td>
                             <td class="small mb15" id="login_status_{$_bill['id']}">
@@ -102,7 +102,7 @@
                             </td>
                         </tr>
                     {/if}
-                    {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_bill['routers'] != 'radius' && $_c['hs_auth_method'] == 'hchap'}
+                    {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && ($_bill['routers']|lower) != 'radius' && $_c['hs_auth_method'] == 'hchap'}
                         <tr>
                             <td class="small text-primary text-uppercase text-normal">{Lang::T('Login Status')}</td>
                             <td class="small mb15">
@@ -148,7 +148,7 @@
         {/foreach}
     </div>
     {foreach $_bills as $_bill}
-        {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_bill['routers'] != 'radius' && $_c['hs_auth_method'] != 'hchap'}
+        {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && ($_bill['routers']|lower) != 'radius' && $_c['hs_auth_method'] != 'hchap'}
             <script>
                 setTimeout(() => {
                     $.ajax({
