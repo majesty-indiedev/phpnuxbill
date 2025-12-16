@@ -21,9 +21,9 @@ class RadiusRest {
     function add_customer($customer, $plan)
     {
     }
-	
+
 	function sync_customer($customer, $plan)
-    {	
+    {
         $this->add_customer($customer, $plan);
     }
 
@@ -64,6 +64,34 @@ class RadiusRest {
     // check if customer is online
     function online_customer($customer, $router_name)
     {
+        global $config;
+
+        $username = is_array($customer) ? ($customer['username'] ?? '') : '';
+        if (empty($username)) {
+            return false;
+        }
+
+        // Determine an "online" window based on interim updates (minutes).
+        // We consider a user online if we have a recent Start/Interim-Update record.
+        // Default window: 10 minutes.
+        $windowSeconds = 600;
+        if (isset($config['frrest_interim_update'])) {
+            $m = (int) $config['frrest_interim_update'];
+            if ($m > 0) {
+                // ~3 intervals + buffer, but never less than 2 minutes.
+                $windowSeconds = max(120, ($m * 60 * 3) + 30);
+            }
+        }
+
+        $cutoff = date('Y-m-d H:i:s', time() - $windowSeconds);
+        $u = addslashes($username);
+        $c = addslashes($cutoff);
+
+        $row = ORM::for_table('rad_acct')
+            ->where_raw("BINARY username = '$u' AND (acctstatustype = 'Start' OR acctstatustype = 'Interim-Update') AND dateAdded >= '$c'")
+            ->find_one();
+
+        return (bool) $row;
     }
 
     // make customer online

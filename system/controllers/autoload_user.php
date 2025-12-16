@@ -27,9 +27,25 @@ switch ($action) {
                 in_array(($p['device'] ?? ''), ['Radius', 'RadiusRest'], true) ||
                 (strtolower((string) ($bill['routers'] ?? '')) === 'radius');
             if ($isRadiusPlan) {
-                $txt = Lang::T('Radius Managed');
-                $safeTxt = htmlspecialchars($txt, ENT_QUOTES, 'UTF-8');
-                die('<a href="#" class="btn btn-default btn-xs btn-block disabled" aria-disabled="true" onclick="return false;">' . $safeTxt . '</a>');
+                $online = false;
+                try {
+                    if (file_exists($dvc)) {
+                        require_once $dvc;
+                        if (!empty($p['device'])) {
+                            $online = (bool) (new $p['device'])->online_customer($user, $bill['routers']);
+                        }
+                    }
+                } catch (Throwable $e) {
+                    $online = false;
+                } catch (Exception $e) {
+                    $online = false;
+                }
+
+                $label = $online ? Lang::T('Online') : Lang::T('Offline');
+                $cls = $online ? 'btn-success' : 'btn-default';
+                $safeLabel = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+                $safeTitle = htmlspecialchars(Lang::T('Radius Managed'), ENT_QUOTES, 'UTF-8');
+                die('<span class="btn ' . $cls . ' btn-xs btn-block disabled" aria-disabled="true" title="' . $safeTitle . '">' . $safeLabel . '</span>');
             }
             if ($_app_stage != 'demo') {
                 try {
