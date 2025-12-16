@@ -72,7 +72,8 @@ class RadiusRest {
         }
 
         // Determine an "online" window based on interim updates (minutes).
-        // We consider a user online if we have a recent Start/Interim-Update record.
+        // We consider a user online if the latest accounting record is Start/Interim-Update
+        // and the last update is recent.
         // Default window: 10 minutes.
         $windowSeconds = 600;
         if (isset($config['frrest_interim_update'])) {
@@ -83,15 +84,12 @@ class RadiusRest {
             }
         }
 
-        $cutoff = date('Y-m-d H:i:s', time() - $windowSeconds);
+        // Fetch latest accounting row for this username.
+        // Avoid filtering by dateAdded in SQL because timezone / type coercion differences
+        // can cause false negatives on some installs; we apply the recency window in PHP.
         $u = addslashes($username);
-        $c = addslashes($cutoff);
-
-        // Be tolerant of schema/field variations by selecting the newest recent row
-        // and evaluating the status field in PHP. This avoids hard-depending on
-        // a particular column name (acctstatustype vs acctStatusType, etc).
         $row = ORM::for_table('rad_acct')
-            ->where_raw("BINARY username = '$u' AND dateAdded >= '$c'")
+            ->where_raw("BINARY username = '$u'")
             ->order_by_desc('id')
             ->find_one();
 
@@ -99,7 +97,6 @@ class RadiusRest {
         if (!$row) {
             $row = ORM::for_table('rad_acct')
                 ->where('username', $username)
-                ->where_gte('dateAdded', $cutoff)
                 ->order_by_desc('id')
                 ->find_one();
         }
@@ -109,7 +106,19 @@ class RadiusRest {
         }
 
         $status = $row['acctstatustype'] ?? $row['acctStatusType'] ?? $row['acctatustype'] ?? null;
-        return in_array($status, ['Start', 'Interim-Update'], true);
+        if (!in_array($status, ['Start', 'Interim-Update'], true)) {
+            return false;
+        }
+
+        // If dateAdded is parseable, enforce recency window; otherwise trust status.
+        $dateAdded = $row['dateAdded'] ?? $row['dateadded'] ?? null;
+        if (is_string($dateAdded) && $dateAdded !== '') {
+            $ts = strtotime($dateAdded);
+            if ($ts !== false) {
+                return (time() - $ts) <= $windowSeconds;
+            }
+        }
+        return true;
     }
 
     // make customer online
