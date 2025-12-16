@@ -106,7 +106,9 @@ class RadiusRest {
         }
 
         $status = $row['acctstatustype'] ?? $row['acctStatusType'] ?? $row['acctatustype'] ?? null;
-        if (!in_array($status, ['Start', 'Interim-Update'], true)) {
+        $status = trim((string) $status);
+        $statusNorm = strtolower($status);
+        if (!in_array($statusNorm, ['start', 'interim-update'], true)) {
             return false;
         }
 
@@ -115,7 +117,8 @@ class RadiusRest {
         if (is_string($dateAdded) && $dateAdded !== '') {
             $ts = strtotime($dateAdded);
             if ($ts !== false) {
-                return (time() - $ts) <= $windowSeconds;
+                // Use abs() to tolerate DB/PHP timezone offsets.
+                return abs(time() - $ts) <= $windowSeconds;
             }
         }
         return true;
