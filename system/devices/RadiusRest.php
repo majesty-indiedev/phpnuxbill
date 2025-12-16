@@ -87,11 +87,29 @@ class RadiusRest {
         $u = addslashes($username);
         $c = addslashes($cutoff);
 
+        // Be tolerant of schema/field variations by selecting the newest recent row
+        // and evaluating the status field in PHP. This avoids hard-depending on
+        // a particular column name (acctstatustype vs acctStatusType, etc).
         $row = ORM::for_table('rad_acct')
-            ->where_raw("BINARY username = '$u' AND (acctstatustype = 'Start' OR acctstatustype = 'Interim-Update') AND dateAdded >= '$c'")
+            ->where_raw("BINARY username = '$u' AND dateAdded >= '$c'")
+            ->order_by_desc('id')
             ->find_one();
 
-        return (bool) $row;
+        // Fallback (non-binary) in case the NAS sends a different casing for username.
+        if (!$row) {
+            $row = ORM::for_table('rad_acct')
+                ->where('username', $username)
+                ->where_gte('dateAdded', $cutoff)
+                ->order_by_desc('id')
+                ->find_one();
+        }
+
+        if (!$row) {
+            return false;
+        }
+
+        $status = $row['acctstatustype'] ?? $row['acctStatusType'] ?? $row['acctatustype'] ?? null;
+        return in_array($status, ['Start', 'Interim-Update'], true);
     }
 
     // make customer online
