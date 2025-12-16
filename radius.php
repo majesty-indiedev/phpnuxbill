@@ -273,34 +273,43 @@ try {
                 die();
             }
             header("HTTP/1.1 200 ok");
+            $acctSessionId = _post('acctSessionId');
+            $nasid = _post('nasid');
+            $macAddr = _post('macAddr');
             $d = ORM::for_table('rad_acct')
-                ->whereRaw("BINARY username = '$username' AND macaddr = '" . _post('macAddr') . "' AND nasid = '" . _post('nasid') . "'")
+                // Use acctsessionid to preserve per-session history.
+                // Without this, reconnects overwrite the same row and usage appears to "reset to 0".
+                ->whereRaw("BINARY username = '$username' AND acctsessionid = '" . $acctSessionId . "' AND macaddr = '" . $macAddr . "' AND nasid = '" . $nasid . "'")
                 ->findOne();
             if (!$d) {
                 $d = ORM::for_table('rad_acct')->create();
             }
+            // MikroTik/FreeRADIUS accounting octets are typically cumulative per session.
+            // Store the latest counters (including Gigawords) instead of summing them.
             $acctOutputOctets = _post('acctOutputOctets', 0);
             $acctInputOctets = _post('acctInputOctets', 0);
-            if ($acctOutputOctets !== false && $acctInputOctets !== false) {
-                $d->acctOutputOctets += intval($acctOutputOctets);
-                $d->acctInputOctets += intval($acctInputOctets);
-            } else {
-                $d->acctOutputOctets = 0;
-                $d->acctInputOctets = 0;
-            }
-            $d->acctsessionid = _post('acctSessionId');
+            $acctOutputGigawords = _post('acctOutputGigawords', 0);
+            $acctInputGigawords = _post('acctInputGigawords', 0);
+            $out = (int) $acctOutputOctets + ((int) $acctOutputGigawords * 4294967296);
+            $in = (int) $acctInputOctets + ((int) $acctInputGigawords * 4294967296);
+            if ($out < 0) $out = 0;
+            if ($in < 0) $in = 0;
+            $d->acctOutputOctets = $out;
+            $d->acctInputOctets = $in;
+
+            $d->acctsessionid = $acctSessionId;
             $d->username = $username;
             $d->realm = _post('realm');
             $d->nasipaddress = _post('nasIpAddress');
             $d->acctsessiontime = intval(_post('acctSessionTime'));
-            $d->nasid = _post('nasid');
+            $d->nasid = $nasid;
             $d->nasportid = _post('nasPortId');
             $d->nasporttype = _post('nasPortType');
             $d->framedipaddress = _post('framedIPAddress');
-            if (in_array(_post('acctStatusType'), ['Start', 'Stop'])) {
+            if (in_array(_post('acctStatusType'), ['Start', 'Stop', 'Interim-Update'], true)) {
                 $d->acctstatustype = _post('acctStatusType');
             }
-            $d->macaddr = _post('macAddr');
+            $d->macaddr = $macAddr;
             $d->dateAdded = date('Y-m-d H:i:s');
             // pastikan data akunting yang disimpan memang customer aktif phpnuxbill
             $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username' AND `status` = 'on' AND `routers` = 'radius'")->find_one();
@@ -358,7 +367,7 @@ function process_radiust_rest($tur, $code)
     $bw = ORM::for_table("tbl_bandwidth")->find_one($plan['id_bw']);
     // Count User Onlines
     $USRon = ORM::for_table('rad_acct')
-        ->whereRaw("BINARY username = '" . $tur['username'] . "' AND acctStatusType = 'Start'")
+        ->whereRaw("BINARY username = '" . $tur['username'] . "' AND acctstatustype = 'Start'")
         ->find_array();
     // get all the IP
     $ips = array_column($USRon, 'framedipaddress');
