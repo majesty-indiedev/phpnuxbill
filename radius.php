@@ -360,11 +360,175 @@ try {
 }
 show_radius_result(['Reply-Message' => 'Invalid Command : ' . $action], 401);
 
+/**
+ * Calculate total data usage for current billing period
+ * Uses same approach as radius_data_usage plugin - sums all accounting records in period
+ */
+function calculate_period_usage($username, $recharged_on, $expiration) {
+    $startDate = date('Y-m-d H:i:s', strtotime($recharged_on));
+    $endDate = date('Y-m-d H:i:s', strtotime($expiration . ' 23:59:59'));
+    
+    $uname = addslashes($username);
+    $totalBytes = 0;
+    
+    try {
+        // More accurate: Get max per session then sum (since accounting is cumulative per session)
+        // This prevents double-counting if multiple records exist per session
+        $query = "SELECT SUM(max_bytes) as total FROM (
+                    SELECT MAX(acctOutputOctets + acctInputOctets) as max_bytes 
+                    FROM rad_acct 
+                    WHERE BINARY username = '$uname' 
+                    AND dateAdded >= '$startDate' 
+                    AND dateAdded <= '$endDate'
+                    GROUP BY acctsessionid
+                  ) as session_max";
+        
+        ORM::raw_execute($query);
+        $statement = ORM::get_last_statement();
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['total']) && $row['total'] > 0) {
+            $totalBytes = intval($row['total']);
+        } else {
+            // Fallback: Simple sum (less accurate but works)
+            $inSum = (int) ORM::for_table('rad_acct')
+                ->where_raw("BINARY username = '$uname'")
+                ->where_gte('dateAdded', $startDate)
+                ->where_lte('dateAdded', $endDate)
+                ->sum('acctInputOctets');
+                
+            $outSum = (int) ORM::for_table('rad_acct')
+                ->where_raw("BINARY username = '$uname'")
+                ->where_gte('dateAdded', $startDate)
+                ->where_lte('dateAdded', $endDate)
+                ->sum('acctOutputOctets');
+                
+            $totalBytes = max(0, $inSum + $outSum);
+        }
+    } catch (Exception $e) {
+        // If query fails, use simple sum as fallback
+        try {
+            $inSum = (int) ORM::for_table('rad_acct')
+                ->where_raw("BINARY username = '$uname'")
+                ->where_gte('dateAdded', $startDate)
+                ->where_lte('dateAdded', $endDate)
+                ->sum('acctInputOctets');
+                
+            $outSum = (int) ORM::for_table('rad_acct')
+                ->where_raw("BINARY username = '$uname'")
+                ->where_gte('dateAdded', $startDate)
+                ->where_lte('dateAdded', $endDate)
+                ->sum('acctOutputOctets');
+                
+            $totalBytes = max(0, $inSum + $outSum);
+        } catch (Exception $e2) {
+            $totalBytes = 0;
+        }
+    }
+    
+    return $totalBytes;
+}
+
 function process_radiust_rest($tur, $code)
 {
     global $config;
     $plan = ORM::for_table('tbl_plans')->where('id', $tur['plan_id'])->find_one();
+    
+    // Fair Usage Policy (FUP) - Check per plan settings
+    // Only apply FUP for Unlimited plans that have FUP configured
+    if ($plan['typebp'] == 'Unlimited' && !empty($plan['fup_threshold']) && !empty($plan['fup_plan_id'])) {
+        // Calculate usage for current billing period
+        $totalUsageBytes = calculate_period_usage($tur['username'], $tur['recharged_on'], $tur['expiration']);
+        
+        // Convert threshold to bytes
+        $thresholdBytes = 0;
+        if ($plan['fup_threshold_unit'] == 'GB') {
+            $thresholdBytes = $plan['fup_threshold'] * 1024 * 1024 * 1024;
+        } else if ($plan['fup_threshold_unit'] == 'MB') {
+            $thresholdBytes = $plan['fup_threshold'] * 1024 * 1024;
+        }
+        
+        // If usage exceeds threshold and customer is not already on FUP plan
+        if ($totalUsageBytes >= $thresholdBytes && $tur['plan_id'] != $plan['fup_plan_id']) {
+            // Move customer to FUP plan
+            $fup_plan = ORM::for_table('tbl_plans')->where('id', $plan['fup_plan_id'])->find_one();
+            if ($fup_plan) {
+                // Update customer's plan - IMPORTANT: Preserve original expiration/time
+                $tur_update = ORM::for_table('tbl_user_recharges')->where('id', $tur['id'])->find_one();
+                if ($tur_update) {
+                    $old_plan_id = $tur_update['plan_id'];
+                    // Store original expiration to preserve it
+                    $original_expiration = $tur_update['expiration'];
+                    $original_time = $tur_update['time'];
+                    
+                    // Only update plan_id and namebp - DO NOT touch expiration/time
+                    $tur_update->plan_id = $fup_plan['id'];
+                    $tur_update->namebp = $fup_plan['name_plan'];
+                    // Explicitly preserve expiration and time (should already be preserved, but being explicit)
+                    $tur_update->expiration = $original_expiration;
+                    $tur_update->time = $original_time;
+                    $tur_update->save();
+                    
+                    // Update plan reference for this authentication
+                    $plan = $fup_plan;
+                    
+                    // Also update the $tur array for this request to reflect FUP plan
+                    $tur['plan_id'] = $fup_plan['id'];
+                    
+                    // Real-time enforcement: Update router/Radius attributes immediately
+                    // This will apply new bandwidth on next authentication or force reconnection
+                    $fup_bw = ORM::for_table("tbl_bandwidth")->find_one($fup_plan['id_bw']);
+                    if ($fup_bw) {
+                        // Determine device type and update accordingly
+                        if ($plan['is_radius'] || $plan['device'] == 'Radius' || $plan['device'] == 'RadiusRest') {
+                            // For Radius: Update attributes in database immediately
+                            require_once "system/devices/Radius.php";
+                            $radius = new Radius();
+                            
+                            $unitdown = ($fup_bw['rate_down_unit'] == 'Kbps') ? 'K' : 'M';
+                            $unitup = ($fup_bw['rate_up_unit'] == 'Kbps') ? 'K' : 'M';
+                            $rate = $fup_bw['rate_up'] . $unitup . "/" . $fup_bw['rate_down'] . $unitdown;
+                            
+                            if (!empty(trim($fup_bw['burst']))) {
+                                $rate .= ' ' . $fup_bw['burst'];
+                            }
+                            
+                            // Update Radius attributes immediately in database
+                            $radius->upsertCustomerAttr($tur['username'], 'Mikrotik-Rate-Limit', $rate, ':=');
+                            
+                            // Send disconnect to force reconnection with new bandwidth
+                            // Most routers (like Mikrotik) will auto-reconnect immediately
+                            // The new bandwidth will be applied on reconnection
+                            // This ensures immediate enforcement without manual user action
+                            try {
+                                $radius->disconnectCustomer($tur['username']);
+                            } catch (Exception $e) {
+                                // If disconnect fails, attributes are still updated for next auth
+                            }
+                        } else {
+                            // For Mikrotik Hotspot/PPPoE: Update user profile on router
+                            if (class_exists('Package')) {
+                                $dvc = Package::getDevice($fup_plan);
+                                if (file_exists($dvc)) {
+                                    require_once $dvc;
+                                    $customer = ORM::for_table('tbl_customers')->where('username', $tur['username'])->find_one();
+                                    if ($customer && !empty($fup_plan['device'])) {
+                                        // Sync customer with new plan (updates router immediately)
+                                        (new $fup_plan['device'])->sync_customer($customer, $fup_plan);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Log the FUP move (optional)
+                    // _log("FUP: Customer {$tur['username']} moved from plan {$old_plan_id} to FUP plan {$fup_plan['id']} (expiration preserved: {$original_expiration} {$original_time})", 'System', 0);
+                }
+            }
+        }
+    }
+    
     $bw = ORM::for_table("tbl_bandwidth")->find_one($plan['id_bw']);
+    
     // Count User Onlines
     $USRon = ORM::for_table('rad_acct')
         ->whereRaw("BINARY username = '" . $tur['username'] . "' AND acctstatustype = 'Start'")

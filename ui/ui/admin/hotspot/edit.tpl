@@ -253,6 +253,46 @@
                                 {Lang::T('When Expired, customer will be move to selected internet package')}</p>
                         </div>
                     </div>
+                    <legend>{Lang::T('Fair Usage Policy (FUP)')} <sub>{Lang::T('Optional')}</sub></legend>
+                    <div class="form-group">
+                        <label class="col-md-3 control-label">{Lang::T('FUP Threshold')}
+                            <a tabindex="0" class="btn btn-link btn-xs" role="button" data-toggle="popover"
+                                data-trigger="focus" data-container="body"
+                                data-content="{Lang::T("When customer exceeds this data usage, they will be moved to the FUP plan")}">?</a>
+                        </label>
+                        <div class="col-md-3">
+                            <input type="number" class="form-control" id="fup_threshold" name="fup_threshold" 
+                                value="{if $d['fup_threshold']}{$d['fup_threshold']}{/if}" min="0" step="0.01" placeholder="20">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-control" id="fup_threshold_unit" name="fup_threshold_unit">
+                                <option value="GB" {if $d['fup_threshold_unit'] eq 'GB'} selected {/if}>GB</option>
+                                <option value="MB" {if $d['fup_threshold_unit'] eq 'MB'} selected {/if}>MB</option>
+                            </select>
+                        </div>
+                        <p class="help-block col-md-4">{Lang::T('Leave empty to disable FUP for this plan')}</p>
+                    </div>
+                    <div class="form-group" id="fup_plan_group" {if !$d['fup_threshold']}style="display:none;"{/if}>
+                        <label class="col-md-3 control-label">{Lang::T('FUP Plan')}
+                            <a tabindex="0" class="btn btn-link btn-xs" role="button" data-toggle="popover"
+                                data-trigger="focus" data-container="body"
+                                data-content="{Lang::T("Plan to move customer to when FUP threshold is exceeded. This plan should have reduced bandwidth configured.")}">?</a>
+                        </label>
+                        <div class="col-md-6">
+                            <select id="fup_plan_id" name="fup_plan_id" class="form-control select2" style="width: 100%;">
+                                <option value='0'>{Lang::T('Select FUP Plan')}...</option>
+                                {if isset($fup_plans)}
+                                    {foreach $fup_plans as $fup_plan}
+                                        <option value="{$fup_plan['id']}" {if $d['fup_plan_id'] eq $fup_plan['id']} selected {/if}>
+                                            {$fup_plan['name_plan']}</option>
+                                    {/foreach}
+                                {/if}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="help-block">{Lang::T('Select the plan with reduced bandwidth for FUP customers')}</p>
+                        </div>
+                    </div>
 
                 </div>
             </div>
@@ -298,6 +338,20 @@
     function postPaid() {
         $("#validity_unit").html(postOpt);
         $("#expired_date").removeClass('hidden');
+    }
+    
+    // Show/hide FUP plan dropdown based on threshold input
+    var fupThreshold = document.getElementById('fup_threshold');
+    var fupPlanGroup = document.getElementById('fup_plan_group');
+    
+    if (fupThreshold && fupPlanGroup) {
+        fupThreshold.addEventListener('input', function() {
+            if (this.value && parseFloat(this.value) > 0) {
+                fupPlanGroup.style.display = 'block';
+            } else {
+                fupPlanGroup.style.display = 'none';
+            }
+        });
     }
 </script>
 

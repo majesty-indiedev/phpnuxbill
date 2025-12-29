@@ -154,6 +154,9 @@ switch ($action) {
             }
         }
         $ui->assign('devices', $devices);
+        // Load FUP plans (all Hotspot plans for selection)
+        $fup_plans = ORM::for_table('tbl_plans')->selects('id', 'name_plan')->where('type', 'Hotspot')->findArray();
+        $ui->assign('fup_plans', $fup_plans);
         run_hook('view_add_plan'); #HOOK
         $ui->display('admin/hotspot/add.tpl');
         break;
@@ -189,6 +192,9 @@ switch ($action) {
                 $exps = ORM::for_table('tbl_plans')->selects('id', 'name_plan')->where('type', 'Hotspot')->where("routers", $d['routers'])->findArray();
             }
             $ui->assign('exps', $exps);
+            // Load FUP plans (all Hotspot plans for selection)
+            $fup_plans = ORM::for_table('tbl_plans')->selects('id', 'name_plan')->where('type', 'Hotspot')->where_not_equal('id', $id)->findArray();
+            $ui->assign('fup_plans', $fup_plans);
             run_hook('view_edit_plan'); #HOOK
             $ui->display('admin/hotspot/edit.tpl');
         } else {
@@ -237,6 +243,9 @@ switch ($action) {
         $enabled = _post('enabled');
         $prepaid = _post('prepaid');
         $expired_date = _post('expired_date');
+        $fup_threshold = _post('fup_threshold');
+        $fup_threshold_unit = _post('fup_threshold_unit');
+        $fup_plan_id = _post('fup_plan_id', '0');
 
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
@@ -337,6 +346,9 @@ switch ($action) {
         $on_login = _post('on_login');
         $on_logout = _post('on_logout');
         $expired_date = _post('expired_date');
+        $fup_threshold = _post('fup_threshold');
+        $fup_threshold_unit = _post('fup_threshold_unit');
+        $fup_plan_id = _post('fup_plan_id', '0');
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
             $msg .= 'The validity must be a number' . '<br>';
@@ -407,6 +419,16 @@ switch ($action) {
                 $d->expired_date = $expired_date;
             } else {
                 $d->expired_date = 20;
+            }
+            // Save FUP settings
+            if (!empty($fup_threshold) && floatval($fup_threshold) > 0) {
+                $d->fup_threshold = intval($fup_threshold);
+                $d->fup_threshold_unit = $fup_threshold_unit;
+                $d->fup_plan_id = intval($fup_plan_id);
+            } else {
+                $d->fup_threshold = null;
+                $d->fup_threshold_unit = null;
+                $d->fup_plan_id = null;
             }
             $d->save();
 
