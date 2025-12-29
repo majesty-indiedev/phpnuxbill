@@ -10,7 +10,11 @@ class User
 {
     public static function getID()
     {
-        global $db_pass;
+        global $db_pass, $isApi;
+        // In API mode, if session is set from token validation, return it directly
+        if ($isApi && isset($_SESSION['uid']) && !empty($_SESSION['uid'])) {
+            return $_SESSION['uid'];
+        }
         if (isset($_SESSION['uid']) && !empty($_SESSION['uid'])) {
             return $_SESSION['uid'];
         } else if (isset($_COOKIE['uid'])) {

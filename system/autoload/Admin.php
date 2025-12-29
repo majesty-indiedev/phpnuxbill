@@ -20,11 +20,14 @@ class Admin
         }
         if ($enable_session_timeout && !empty($_SESSION['aid']) && !empty($_SESSION['aid_expiration'])) {
             if ($_SESSION['aid_expiration'] > time()) {
-                $isValid = self::validateToken($_SESSION['aid'], $_COOKIE['aid']);
-                if (!$isValid) {
-                    self::removeCookie();
-                    _alert(Lang::T('Token has expired. Please log in again.'), 'danger', "admin");
-                    return 0;
+                // In API mode, skip cookie validation since token was already validated
+                if (!$isApi) {
+                    $isValid = self::validateToken($_SESSION['aid'], $_COOKIE['aid'] ?? '');
+                    if (!$isValid) {
+                        self::removeCookie();
+                        _alert(Lang::T('Token has expired. Please log in again.'), 'danger', "admin");
+                        return 0;
+                    }
                 }
                 // extend timeout duration
                 $_SESSION['aid_expiration'] = time() + $session_timeout_duration;
@@ -37,7 +40,11 @@ class Admin
                 return 0;
             }
         } else if (!empty($_SESSION['aid'])) {
-            $isValid = self::validateToken($_SESSION['aid'], $_COOKIE['aid']);
+            // In API mode, skip cookie validation since token was already validated
+            if ($isApi) {
+                return $_SESSION['aid'];
+            }
+            $isValid = self::validateToken($_SESSION['aid'], $_COOKIE['aid'] ?? '');
             if (!$isValid) {
                 self::removeCookie();
                 _alert(Lang::T('Token has expired. Please log in again.') . '.'.$_SESSION['aid'], 'danger', "admin");

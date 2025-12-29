@@ -226,7 +226,12 @@ function _auth($login = true)
         return true;
     } else {
         if ($login) {
-            r2(getUrl('login'));
+            global $isApi;
+            if ($isApi) {
+                showResult(false, Lang::T("Authentication required"));
+            } else {
+                r2(getUrl('login'));
+            }
         } else {
             return false;
         }
@@ -239,7 +244,12 @@ function _admin($login = true)
         return true;
     } else {
         if ($login) {
-            r2(getUrl('login'));
+            global $isApi;
+            if ($isApi) {
+                showResult(false, Lang::T("Authentication required"));
+            } else {
+                r2(getUrl('login'));
+            }
         } else {
             return false;
         }

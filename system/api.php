@@ -82,12 +82,16 @@ $handler = $routes[0];
 
 if (!empty($token)) {
     if ($token == $config['api_key']) {
-        $admin = ORM::for_table('tbl_users')->where('user_type', 'SuperAdmin')->find_one($id);
+        $admin = ORM::for_table('tbl_users')->where('user_type', 'SuperAdmin')->find_one();
         if (empty($admin)) {
-            $admin = ORM::for_table('tbl_users')->where('user_type', 'Admin')->find_one($id);
+            $admin = ORM::for_table('tbl_users')->where('user_type', 'Admin')->find_one();
             if (empty($admin)) {
                 showResult(false, Lang::T("Token is invalid"));
             }
+        }
+        // Set session for static API key
+        if (!empty($admin)) {
+            $_SESSION['aid'] = $admin['id'];
         }
     } else {
         # validate token
@@ -99,7 +103,6 @@ if (!empty($token)) {
         #cek token expiration
         // 3 bulan
         if ($time != 0 && time() - $time > 7776000) {
-            die("$time != " . (time() - $time));
             showResult(false, Lang::T("Token Expired"), [], ['login' => true]);
         }
 
