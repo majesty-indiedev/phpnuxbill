@@ -258,7 +258,7 @@
                         <label class="col-md-3 control-label">{Lang::T('FUP Threshold')}
                             <a tabindex="0" class="btn btn-link btn-xs" role="button" data-toggle="popover"
                                 data-trigger="focus" data-container="body"
-                                data-content="{Lang::T("When customer exceeds this data usage, they will be moved to the FUP plan")}">?</a>
+                                data-content="{Lang::T("When customer exceeds this data usage, their speed will be reduced to the FUP speed specified below")}">?</a>
                         </label>
                         <div class="col-md-3">
                             <input type="number" class="form-control" id="fup_threshold" name="fup_threshold" 
@@ -273,24 +273,67 @@
                         <p class="help-block col-md-4">{Lang::T('Leave empty to disable FUP for this plan')}</p>
                     </div>
                     <div class="form-group" id="fup_plan_group" {if !$d['fup_threshold']}style="display:none;"{/if}>
-                        <label class="col-md-3 control-label">{Lang::T('FUP Plan')}
+                        <label class="col-md-3 control-label">{Lang::T('FUP Speed')}
                             <a tabindex="0" class="btn btn-link btn-xs" role="button" data-toggle="popover"
                                 data-trigger="focus" data-container="body"
-                                data-content="{Lang::T("Plan to move customer to when FUP threshold is exceeded. This plan should have reduced bandwidth configured.")}">?</a>
+                                data-content="{Lang::T("Speed to apply when FUP threshold is exceeded")}">?</a>
                         </label>
-                        <div class="col-md-6">
-                            <select id="fup_plan_id" name="fup_plan_id" class="form-control select2" style="width: 100%;">
-                                <option value='0'>{Lang::T('Select FUP Plan')}...</option>
-                                {if isset($fup_plans)}
-                                    {foreach $fup_plans as $fup_plan}
-                                        <option value="{$fup_plan['id']}" {if $d['fup_plan_id'] eq $fup_plan['id']} selected {/if}>
-                                            {$fup_plan['name_plan']}</option>
-                                    {/foreach}
-                                {/if}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <p class="help-block">{Lang::T('Select the plan with reduced bandwidth for FUP customers')}</p>
+                        <div class="col-md-9">
+                            <div class="form-group">
+                                <label class="col-md-3 control-label">{Lang::T('Bandwidth Preset')}</label>
+                                <div class="col-md-4">
+                                    <select id="fup_bandwidth_preset" class="form-control">
+                                        <option value="">{Lang::T('Select Bandwidth Preset')}...</option>
+                                        {foreach $b as $bw}
+                                            <option value="{$bw['id']}" 
+                                                data-rate-up="{$bw['rate_up']}" 
+                                                data-rate-up-unit="{$bw['rate_up_unit']}"
+                                                data-rate-down="{$bw['rate_down']}" 
+                                                data-rate-down-unit="{$bw['rate_down_unit']}"
+                                                data-burst="{$bw['burst']}">
+                                                {$bw['name_bw']} ({$bw['rate_up']} {$bw['rate_up_unit']}/{$bw['rate_down']} {$bw['rate_down_unit']})
+                                            </option>
+                                        {/foreach}
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <p class="help-block">{Lang::T('Select a bandwidth preset to auto-fill FUP speed fields')}</p>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label>{Lang::T('Upload Speed')}</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="fup_rate_up" name="fup_rate_up" 
+                                            value="{if $d['fup_rate_up']}{$d['fup_rate_up']}{/if}" min="0" step="0.01" placeholder="1">
+                                        <span class="input-group-addon" style="padding: 0;">
+                                            <select class="form-control" id="fup_rate_up_unit" name="fup_rate_up_unit" style="border: none; border-left: 1px solid #ddd;">
+                                                <option value="Mbps" {if $d['fup_rate_up_unit'] eq 'Mbps'} selected {/if}>Mbps</option>
+                                                <option value="Kbps" {if $d['fup_rate_up_unit'] eq 'Kbps'} selected {/if}>Kbps</option>
+                                            </select>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label>{Lang::T('Download Speed')}</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="fup_rate_down" name="fup_rate_down" 
+                                            value="{if $d['fup_rate_down']}{$d['fup_rate_down']}{/if}" min="0" step="0.01" placeholder="2">
+                                        <span class="input-group-addon" style="padding: 0;">
+                                            <select class="form-control" id="fup_rate_down_unit" name="fup_rate_down_unit" style="border: none; border-left: 1px solid #ddd;">
+                                                <option value="Mbps" {if $d['fup_rate_down_unit'] eq 'Mbps'} selected {/if}>Mbps</option>
+                                                <option value="Kbps" {if $d['fup_rate_down_unit'] eq 'Kbps'} selected {/if}>Kbps</option>
+                                            </select>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label>{Lang::T('Burst')} <small>({Lang::T('Optional')})</small></label>
+                                    <input type="text" class="form-control" id="fup_burst" name="fup_burst" 
+                                        value="{if $d['fup_burst']}{$d['fup_burst']}{/if}" placeholder="e.g., 5M/10M 40M/60M">
+                                </div>
+                            </div>
+                            <p class="help-block">{Lang::T('Specify the reduced speed when FUP threshold is exceeded')}</p>
                         </div>
                     </div>
 
@@ -340,7 +383,7 @@
         $("#expired_date").removeClass('hidden');
     }
     
-    // Show/hide FUP plan dropdown based on threshold input
+    // Show/hide FUP bandwidth fields based on threshold input
     var fupThreshold = document.getElementById('fup_threshold');
     var fupPlanGroup = document.getElementById('fup_plan_group');
     
@@ -350,6 +393,37 @@
                 fupPlanGroup.style.display = 'block';
             } else {
                 fupPlanGroup.style.display = 'none';
+            }
+        });
+    }
+    
+    // Handle bandwidth preset selection for FUP
+    var fupBandwidthPreset = document.getElementById('fup_bandwidth_preset');
+    if (fupBandwidthPreset) {
+        fupBandwidthPreset.addEventListener('change', function() {
+            if (this.value) {
+                var selectedOption = this.options[this.selectedIndex];
+                var rateUp = selectedOption.getAttribute('data-rate-up');
+                var rateUpUnit = selectedOption.getAttribute('data-rate-up-unit');
+                var rateDown = selectedOption.getAttribute('data-rate-down');
+                var rateDownUnit = selectedOption.getAttribute('data-rate-down-unit');
+                var burst = selectedOption.getAttribute('data-burst');
+                
+                if (rateUp) {
+                    document.getElementById('fup_rate_up').value = rateUp;
+                }
+                if (rateUpUnit) {
+                    document.getElementById('fup_rate_up_unit').value = rateUpUnit;
+                }
+                if (rateDown) {
+                    document.getElementById('fup_rate_down').value = rateDown;
+                }
+                if (rateDownUnit) {
+                    document.getElementById('fup_rate_down_unit').value = rateDownUnit;
+                }
+                if (burst) {
+                    document.getElementById('fup_burst').value = burst;
+                }
             }
         });
     }

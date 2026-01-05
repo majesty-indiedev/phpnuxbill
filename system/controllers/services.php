@@ -154,9 +154,6 @@ switch ($action) {
             }
         }
         $ui->assign('devices', $devices);
-        // Load FUP plans (all Hotspot plans for selection)
-        $fup_plans = ORM::for_table('tbl_plans')->selects('id', 'name_plan')->where('type', 'Hotspot')->findArray();
-        $ui->assign('fup_plans', $fup_plans);
         run_hook('view_add_plan'); #HOOK
         $ui->display('admin/hotspot/add.tpl');
         break;
@@ -192,9 +189,6 @@ switch ($action) {
                 $exps = ORM::for_table('tbl_plans')->selects('id', 'name_plan')->where('type', 'Hotspot')->where("routers", $d['routers'])->findArray();
             }
             $ui->assign('exps', $exps);
-            // Load FUP plans (all Hotspot plans for selection)
-            $fup_plans = ORM::for_table('tbl_plans')->selects('id', 'name_plan')->where('type', 'Hotspot')->where_not_equal('id', $id)->findArray();
-            $ui->assign('fup_plans', $fup_plans);
             run_hook('view_edit_plan'); #HOOK
             $ui->display('admin/hotspot/edit.tpl');
         } else {
@@ -245,7 +239,11 @@ switch ($action) {
         $expired_date = _post('expired_date');
         $fup_threshold = _post('fup_threshold');
         $fup_threshold_unit = _post('fup_threshold_unit');
-        $fup_plan_id = _post('fup_plan_id', '0');
+        $fup_rate_up = _post('fup_rate_up');
+        $fup_rate_up_unit = _post('fup_rate_up_unit');
+        $fup_rate_down = _post('fup_rate_down');
+        $fup_rate_down_unit = _post('fup_rate_down_unit');
+        $fup_burst = _post('fup_burst');
 
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
@@ -304,6 +302,34 @@ switch ($action) {
             } else {
                 $d->expired_date = 20;
             }
+            // Save FUP settings
+            if (!empty($fup_threshold) && floatval($fup_threshold) > 0) {
+                $d->fup_threshold = intval($fup_threshold);
+                $d->fup_threshold_unit = $fup_threshold_unit;
+                
+                // Save FUP bandwidth fields
+                if (!empty($fup_rate_up) && !empty($fup_rate_down)) {
+                    $d->fup_rate_up = floatval($fup_rate_up);
+                    $d->fup_rate_up_unit = $fup_rate_up_unit;
+                    $d->fup_rate_down = floatval($fup_rate_down);
+                    $d->fup_rate_down_unit = $fup_rate_down_unit;
+                    $d->fup_burst = $fup_burst ?: null;
+                } else {
+                    $d->fup_rate_up = null;
+                    $d->fup_rate_up_unit = null;
+                    $d->fup_rate_down = null;
+                    $d->fup_rate_down_unit = null;
+                    $d->fup_burst = null;
+                }
+            } else {
+                $d->fup_threshold = null;
+                $d->fup_threshold_unit = null;
+                $d->fup_rate_up = null;
+                $d->fup_rate_up_unit = null;
+                $d->fup_rate_down = null;
+                $d->fup_rate_down_unit = null;
+                $d->fup_burst = null;
+            }
             $d->save();
 
             $dvc = Package::getDevice($d);
@@ -348,7 +374,11 @@ switch ($action) {
         $expired_date = _post('expired_date');
         $fup_threshold = _post('fup_threshold');
         $fup_threshold_unit = _post('fup_threshold_unit');
-        $fup_plan_id = _post('fup_plan_id', '0');
+        $fup_rate_up = _post('fup_rate_up');
+        $fup_rate_up_unit = _post('fup_rate_up_unit');
+        $fup_rate_down = _post('fup_rate_down');
+        $fup_rate_down_unit = _post('fup_rate_down_unit');
+        $fup_burst = _post('fup_burst');
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
             $msg .= 'The validity must be a number' . '<br>';
@@ -424,11 +454,29 @@ switch ($action) {
             if (!empty($fup_threshold) && floatval($fup_threshold) > 0) {
                 $d->fup_threshold = intval($fup_threshold);
                 $d->fup_threshold_unit = $fup_threshold_unit;
-                $d->fup_plan_id = intval($fup_plan_id);
+                
+                // Save FUP bandwidth fields
+                if (!empty($fup_rate_up) && !empty($fup_rate_down)) {
+                    $d->fup_rate_up = floatval($fup_rate_up);
+                    $d->fup_rate_up_unit = $fup_rate_up_unit;
+                    $d->fup_rate_down = floatval($fup_rate_down);
+                    $d->fup_rate_down_unit = $fup_rate_down_unit;
+                    $d->fup_burst = $fup_burst ?: null;
+                } else {
+                    $d->fup_rate_up = null;
+                    $d->fup_rate_up_unit = null;
+                    $d->fup_rate_down = null;
+                    $d->fup_rate_down_unit = null;
+                    $d->fup_burst = null;
+                }
             } else {
                 $d->fup_threshold = null;
                 $d->fup_threshold_unit = null;
-                $d->fup_plan_id = null;
+                $d->fup_rate_up = null;
+                $d->fup_rate_up_unit = null;
+                $d->fup_rate_down = null;
+                $d->fup_rate_down_unit = null;
+                $d->fup_burst = null;
             }
             $d->save();
 

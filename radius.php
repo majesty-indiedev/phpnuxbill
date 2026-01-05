@@ -435,7 +435,7 @@ function process_radiust_rest($tur, $code)
     
     // Fair Usage Policy (FUP) - Check per plan settings
     // Only apply FUP for Unlimited plans that have FUP configured
-    if ($plan['typebp'] == 'Unlimited' && !empty($plan['fup_threshold']) && !empty($plan['fup_plan_id'])) {
+    if ($plan['typebp'] == 'Unlimited' && !empty($plan['fup_threshold'])) {
         // Calculate usage for current billing period
         $totalUsageBytes = calculate_period_usage($tur['username'], $tur['recharged_on'], $tur['expiration']);
         
@@ -447,87 +447,97 @@ function process_radiust_rest($tur, $code)
             $thresholdBytes = $plan['fup_threshold'] * 1024 * 1024;
         }
         
-        // If usage exceeds threshold and customer is not already on FUP plan
-        if ($totalUsageBytes >= $thresholdBytes && $tur['plan_id'] != $plan['fup_plan_id']) {
-            // Move customer to FUP plan
-            $fup_plan = ORM::for_table('tbl_plans')->where('id', $plan['fup_plan_id'])->find_one();
-            if ($fup_plan) {
-                // Update customer's plan - IMPORTANT: Preserve original expiration/time
-                $tur_update = ORM::for_table('tbl_user_recharges')->where('id', $tur['id'])->find_one();
-                if ($tur_update) {
-                    $old_plan_id = $tur_update['plan_id'];
-                    // Store original expiration to preserve it
-                    $original_expiration = $tur_update['expiration'];
-                    $original_time = $tur_update['time'];
-                    
-                    // Only update plan_id and namebp - DO NOT touch expiration/time
-                    $tur_update->plan_id = $fup_plan['id'];
-                    $tur_update->namebp = $fup_plan['name_plan'];
-                    // Explicitly preserve expiration and time (should already be preserved, but being explicit)
-                    $tur_update->expiration = $original_expiration;
-                    $tur_update->time = $original_time;
-                    $tur_update->save();
-                    
-                    // Update plan reference for this authentication
-                    $plan = $fup_plan;
-                    
-                    // Also update the $tur array for this request to reflect FUP plan
-                    $tur['plan_id'] = $fup_plan['id'];
-                    
-                    // Real-time enforcement: Update router/Radius attributes immediately
-                    // This will apply new bandwidth on next authentication or force reconnection
-                    $fup_bw = ORM::for_table("tbl_bandwidth")->find_one($fup_plan['id_bw']);
-                    if ($fup_bw) {
-                        // Determine device type and update accordingly
-                        if ($plan['is_radius'] || $plan['device'] == 'Radius' || $plan['device'] == 'RadiusRest') {
-                            // For Radius: Update attributes in database immediately
-                            require_once "system/devices/Radius.php";
-                            $radius = new Radius();
-                            
-                            $unitdown = ($fup_bw['rate_down_unit'] == 'Kbps') ? 'K' : 'M';
-                            $unitup = ($fup_bw['rate_up_unit'] == 'Kbps') ? 'K' : 'M';
-                            $rate = $fup_bw['rate_up'] . $unitup . "/" . $fup_bw['rate_down'] . $unitdown;
-                            
-                            if (!empty(trim($fup_bw['burst']))) {
-                                $rate .= ' ' . $fup_bw['burst'];
-                            }
-                            
-                            // Update Radius attributes immediately in database
-                            $radius->upsertCustomerAttr($tur['username'], 'Mikrotik-Rate-Limit', $rate, ':=');
-                            
-                            // Send disconnect to force reconnection with new bandwidth
-                            // Most routers (like Mikrotik) will auto-reconnect immediately
-                            // The new bandwidth will be applied on reconnection
-                            // This ensures immediate enforcement without manual user action
-                            try {
-                                $radius->disconnectCustomer($tur['username']);
-                            } catch (Exception $e) {
-                                // If disconnect fails, attributes are still updated for next auth
-                            }
-                        } else {
-                            // For Mikrotik Hotspot/PPPoE: Update user profile on router
-                            if (class_exists('Package')) {
-                                $dvc = Package::getDevice($fup_plan);
-                                if (file_exists($dvc)) {
-                                    require_once $dvc;
-                                    $customer = ORM::for_table('tbl_customers')->where('username', $tur['username'])->find_one();
-                                    if ($customer && !empty($fup_plan['device'])) {
-                                        // Sync customer with new plan (updates router immediately)
-                                        (new $fup_plan['device'])->sync_customer($customer, $fup_plan);
+        // Check if threshold exceeded
+        if ($totalUsageBytes >= $thresholdBytes) {
+            // NEW: Use direct bandwidth if specified (implicit FUP)
+            if (!empty($plan['fup_rate_up']) && !empty($plan['fup_rate_down'])) {
+                // Build rate limit string from direct bandwidth fields
+                $unitdown = ($plan['fup_rate_down_unit'] == 'Kbps') ? 'K' : 'M';
+                $unitup = ($plan['fup_rate_up_unit'] == 'Kbps') ? 'K' : 'M';
+                $rate = $plan['fup_rate_up'] . $unitup . "/" . $plan['fup_rate_down'] . $unitdown;
+                
+                if (!empty(trim($plan['fup_burst']))) {
+                    $rate .= ' ' . $plan['fup_burst'];
+                }
+                
+                // Apply FUP bandwidth directly (no plan switch needed)
+                // Update bandwidth attributes immediately
+                if ($plan['is_radius'] || $plan['device'] == 'Radius' || $plan['device'] == 'RadiusRest') {
+                    require_once "system/devices/Radius.php";
+                    $radius = new Radius();
+                    $radius->upsertCustomerAttr($tur['username'], 'Mikrotik-Rate-Limit', $rate, ':=');
+                    try {
+                        $radius->disconnectCustomer($tur['username']);
+                    } catch (Exception $e) {
+                        // If disconnect fails, attributes are still updated for next auth
+                    }
+                } else {
+                    // For Mikrotik Hotspot/PPPoE: Update user profile directly
+                    if (class_exists('Package')) {
+                        $dvc = Package::getDevice($plan);
+                        if (file_exists($dvc)) {
+                            require_once $dvc;
+                            $customer = ORM::for_table('tbl_customers')->where('username', $tur['username'])->find_one();
+                            if ($customer && !empty($plan['device'])) {
+                                // Update rate-limit directly on router using RouterOS API
+                                $deviceObj = new $plan['device'];
+                                $mikrotik = $deviceObj->info($plan['routers']);
+                                $client = $deviceObj->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                                
+                                if ($client) {
+                                    // RouterOS classes are available via device class require_once
+                                    // Use full namespace since we're in radius.php
+                                    if ($plan['type'] == 'Hotspot') {
+                                        // Update hotspot user rate-limit
+                                        $printRequest = new \PEAR2\Net\RouterOS\Request('/ip/hotspot/user/print');
+                                        $printRequest->setQuery(\PEAR2\Net\RouterOS\Query::where('name', $customer['username']));
+                                        $userInfo = $client->sendSync($printRequest);
+                                        $id = $userInfo->getProperty('.id');
+                                        if ($id) {
+                                            $setRequest = new \PEAR2\Net\RouterOS\Request('/ip/hotspot/user/set');
+                                            $setRequest->setArgument('numbers', $id);
+                                            $setRequest->setArgument('rate-limit', $rate);
+                                            $client->sendSync($setRequest);
+                                        }
+                                    } else if ($plan['type'] == 'PPPOE') {
+                                        // Update PPPoE secret rate-limit
+                                        $username = !empty($customer['pppoe_username']) ? $customer['pppoe_username'] : $customer['username'];
+                                        $printRequest = new \PEAR2\Net\RouterOS\Request('/ppp/secret/print');
+                                        $printRequest->setQuery(\PEAR2\Net\RouterOS\Query::where('name', $username));
+                                        $userInfo = $client->sendSync($printRequest);
+                                        $id = $userInfo->getProperty('.id');
+                                        if ($id) {
+                                            $setRequest = new \PEAR2\Net\RouterOS\Request('/ppp/secret/set');
+                                            $setRequest->setArgument('numbers', $id);
+                                            $setRequest->setArgument('rate-limit', $rate);
+                                            $client->sendSync($setRequest);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    
-                    // Log the FUP move (optional)
-                    // _log("FUP: Customer {$tur['username']} moved from plan {$old_plan_id} to FUP plan {$fup_plan['id']} (expiration preserved: {$original_expiration} {$original_time})", 'System', 0);
                 }
+                
+                // Use FUP bandwidth for this authorization response
+                // Create a bandwidth array that will be used below instead of fetching from database
+                $fup_bw_used = true;
+                $bw = [
+                    'rate_up' => $plan['fup_rate_up'],
+                    'rate_up_unit' => $plan['fup_rate_up_unit'],
+                    'rate_down' => $plan['fup_rate_down'],
+                    'rate_down_unit' => $plan['fup_rate_down_unit'],
+                    'burst' => $plan['fup_burst'] ?? ''
+                ];
             }
         }
     }
     
-    $bw = ORM::for_table("tbl_bandwidth")->find_one($plan['id_bw']);
+    // Use FUP bandwidth if it was set, otherwise fetch from database
+    if (!isset($fup_bw_used) || !$fup_bw_used) {
+        $bw = ORM::for_table("tbl_bandwidth")->find_one($plan['id_bw']);
+    }
+    // $bw is already set from FUP direct bandwidth above if fup_bw_used is true
     
     // Count User Onlines
     $USRon = ORM::for_table('rad_acct')
@@ -561,7 +571,8 @@ function process_radiust_rest($tur, $code)
     $attrs = [];
     $timeexp = strtotime($tur['expiration'] . ' ' . $tur['time']);
     $attrs['reply:Reply-Message'] = 'success';
-    $attrs['Simultaneous-Use'] = $plan['shared_users'];
+    $attrs['reply:Simultaneous-Use'] = $plan['shared_users'];
+    $attrs['reply:Port-Limit'] = $plan['shared_users']; // Mikrotik-specific attribute for session limits
     $attrs['reply:Mikrotik-Wireless-Comment'] = $plan['name_plan'] . ' | ' . $tur['expiration'] . ' ' . $tur['time'];
 
     $attrs['reply:Ascend-Data-Rate'] = str_replace('M', '000000', str_replace('K', '000', $rates[1]));
